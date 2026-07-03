@@ -22,6 +22,23 @@ This document contains rules, constraints, coding standards, and execution guide
 4. **State Persistence**:
    - Use `./logs/backup_service.pid` to record the active PID of the running `backup_service.py` process.
    - Clean up the PID file gracefully upon service stop or when a dead process is detected.
+5. **Requirements & Audit Compliance**:
+   - **CLI Core Functionality**: `backup_manager.py` must support `start`, `stop`, `create "[path];[hh:mm];[name]"`, `list`, `delete [index]`, and `backups`.
+   - **Daemon Core Functionality**: `backup_service.py` must run in an infinite loop, sleep for 45 seconds at the end of each iteration, check `backup_schedules.txt`, compare current local time (hour/minute) with schedule times, and compress target folders to `./backups/{backup_name}.tar`.
+   - **CLI Error & Logging Audits**:
+     - Invalid command inputs must log `Error: unknown instruction`.
+     - Malformed schedule formats must log `Error: malformed schedule: <string>`.
+     - Deleting a non-existent index must log `Error: can't find schedule at index <index>`.
+     - Deleting missing file `backup_schedules.txt` must log `Error: can't find backup_schedules.txt`.
+     - Stopping a stopped daemon must log `Error: can't stop backup_service`.
+     - Running `backups` when the backups directory is missing must log `Error: can't find backups directory`.
+   - **Daemon Error & Logging Audits**:
+     - Starting without a schedule file must log `Error: cannot open backup_schedules` to `./logs/backup_service.log`.
+     - Missing target folders for backups must be logged and skipped gracefully without crashing the daemon.
+   - **Execution & Double Launch Rules**:
+     - Re-running `start` when the daemon is already running must log `Error: backup_service already running` and abort.
+     - Scheduled times that have already passed must not trigger immediate backups upon daemon start.
+     - Generated tarballs must be verified to contain non-empty, non-damaged files matching the original directory hierarchy.
 
 ---
 
