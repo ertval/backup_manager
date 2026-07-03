@@ -30,8 +30,6 @@ graph TD
 
 ## 2. Technical Specifications & Shared Interfaces
 
-To allow Dev 2 and Dev 3 to work in parallel, we establish the following design contracts:
-
 ### A. The Schedules File (`backup_schedules.txt`)
 - **Format**: Flat text file where each line is a semicolon-separated string:
   `path_to_save;time(hh:mm);backup_name`
