@@ -25,6 +25,14 @@ backup_manager/
 ├── docs/
 │   ├── audit.md              # Functional audit steps
 │   └── requirements.md       # Product requirements documentation
+├── tests/
+│   ├── unit/
+│   │   ├── test_backup_manager.py  # Unit tests for CLI
+│   │   └── test_backup_service.py  # Unit tests for daemon
+│   ├── integration/
+│   │   └── test_cli_daemon.py      # Integration tests
+│   └── e2e/
+│       └── test_audit_compliance.py # E2E tests per audit.md
 ├── AGENTS.md                 # Agent coding conventions and rules
 ├── backup_manager.py         # CLI orchestration script (User Interface)
 ├── backup_service.py         # Daemon process (Scheduling & execution engine)
@@ -137,6 +145,34 @@ Backups are archived as standard `.tar` files. To verify integrity manual extrac
 ```bash
 tar -tvf ./backups/backup_test.tar
 ```
+
+---
+
+---
+
+## Testing
+
+All tests use Python's built-in `unittest` — no external dependencies required.
+
+### Test Structure
+
+```
+tests/
+├── unit/           # Unit tests (Dev 2 & Dev 3, Phase 2 deliverable)
+├── integration/    # CLI ↔ daemon interaction tests (Dev 1, Phase 3)
+└── e2e/            # End-to-end audit compliance tests (Dev 1, Phase 3)
+```
+
+### Running Tests
+
+```bash
+python3 -m unittest discover -s tests -v               # all
+python3 -m unittest discover -s tests/unit -v           # unit (phase 2 gate)
+python3 -m unittest discover -s tests/integration -v    # integration
+python3 -m unittest discover -s tests/e2e -v            # E2E audit
+```
+
+See [`development_plan.md`](development_plan.md) §5 for the full audit-to-test mapping and coverage requirements.
 
 ---
 

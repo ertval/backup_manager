@@ -1,5 +1,32 @@
 ## Backup manager
 
+### Testing requirements
+
+All features must be covered by automated tests using Python's built-in `unittest` framework. No external test dependencies.
+
+#### Test file organization
+
+```
+tests/
+├── unit/
+│   ├── test_backup_manager.py  # Unit tests for CLI (Dev 2)
+│   └── test_backup_service.py  # Unit tests for daemon (Dev 3)
+├── integration/
+│   └── test_cli_daemon.py      # Integration tests (Dev 1)
+└── e2e/
+    └── test_audit_compliance.py # E2E tests per audit.md (Dev 1)
+```
+
+#### Coverage requirements
+
+**CLI unit tests** must validate: schedule parsing (valid/malformed), `create` writes and error-logs, `list` indices and missing-file error, `delete` by index with re-indexing, `delete` error messages for bad index and missing file, `backups` listing and missing-directory error, `start`/`stop` process lifecycle with PID file, double-launch prevention, unknown instruction logging, log timestamp format `[dd/mm/yyyy hh:mm]`, and `try`/`except` usage.
+
+**Daemon unit tests** must validate: schedule line parsing, time matching, passed-time suppression, deduplication (same day skip, different day retrigger), PID registration/cleanup, tar archive creation with correct hierarchy and non-empty files, missing folder error handling, backup success log format, missing schedule file error, log timestamp format, `try`/`except` usage, and 45-second sleep constant.
+
+**Integration tests** must validate: `start` spawns real process, `stop` terminates and cleans PID, double `start` prevention end-to-end, and full create→start→backup→stop flow.
+
+**E2E tests** must implement one test method per question/verification step in `docs/audit.md`, run in isolated temp directories, and validate tar contents via `tarfile` (original files match, non-empty, correct hierarchy).
+
 ### Logs and error handling
 
 All scripts will have to use `try` and `except` to handle errors.

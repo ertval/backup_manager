@@ -1,3 +1,5 @@
+> **Test mapping**: Each question below maps to a test method in `tests/e2e/test_audit_compliance.py`. The E2E test suite (Dev 1, Phase 3) must implement one test per numbered question.
+
 #### Functional
 
 ##### Before we start, let's make sure we have a fresh environment by running this command `rm -dr logs backups backup_schedules.txt`.

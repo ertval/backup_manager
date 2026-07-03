@@ -67,36 +67,117 @@ We have three developers assigned to this workspace:
 
 ### **Developer 1 (User / PM / QA)**
 * **Role**: Product Owner, QA Lead, Integration Engineer.
+* **Spec references**: [`docs/audit.md`](docs/audit.md) (all questions), [`docs/requirements.md`](docs/requirements.md) Testing section.
 * **Responsibilities**:
-  1. **Interface Coordination**: Arbitrates disputes or updates regarding file interfaces (schedules format, PID format).
-  2. **Validation & Test Execution**: Once Dev 2 and Dev 3 finish implementation, Dev 1 runs the verification steps defined in [audit.md](file:///home/ertval/code/zone-modules/backup_manager/docs/audit.md).
-  3. **Robustness Inspections**: Conducts code reviews focusing on edge cases, folder structures, and `try-except` blocks.
+  1. **Interface Coordination**
+     1a. Define `backup_schedules.txt` format (`path;hh:mm;name`).
+     1b. Define PID file contract (`./logs/backup_service.pid`).
+     1c. Define log format (`[dd/mm/yyyy hh:mm] Message`).
+     1d. Arbitrate disputes between Dev 2 and Dev 3 on file interfaces.
+  2. **Phase 3 — Integration Tests** (`tests/integration/test_cli_daemon.py`)
+     2a. Test `start` spawns real `backup_service.py` process visible via `ps`.
+     2b. Test `stop` terminates process and removes `backup_service.pid`.
+     2c. Test double `start` blocked with `Error: backup_service already running`.
+     2d. Test full flow: `create` → `start` → backup triggers → `backups` shows `.tar` → `stop`.
+  3. **Phase 3 — E2E Audit Tests** (`tests/e2e/test_audit_compliance.py`)
+     3a. Map every `docs/audit.md` question to a test method (see §6 audit-to-test mapping).
+     3b. Test clean env: `rm -dr logs backups backup_schedules.txt`.
+     3c. Tests for `create`/`list`/`delete`/`start`/`stop`/`backups` with outputs and re-indexing.
+     3d. Test manual backup at matching time, verify `.tar` contents via `tarfile`.
+     3e. Test passed-time schedule does not trigger.
+     3f. Test `.zip` folder backup works same as `.tar`.
+     3g. Test unknown instruction logs `Error: unknown instruction`.
+     3h. Test all error messages from audit.md §Error handling appear in log files.
+     3i. Test source code contains `try`/`except`.
+  4. **Validation & Test Execution**
+     4a. Run `python3 -m unittest discover -s tests/unit -v` — gate before phase 3.
+     4b. Run full suite `python3 -m unittest discover -s tests -v`.
+     4c. Execute manual steps from `docs/audit.md` as exploratory supplement.
+  5. **Robustness Inspections**
+     5a. Review Dev 2 code for `try`/`except` on I/O, process spawn/kill, file ops.
+     5b. Review Dev 3 code for `try`/`except` on I/O, tar creation, PID ops.
+     5c. Verify both scripts handle missing `./logs/`, `./backups/`, `backup_schedules.txt` gracefully.
 
 ### **Developer 2**
 * **Role**: CLI Architect.
-* **Responsibilities**:
-  1. Implement **`backup_manager.py`** conforming to command-line parameters:
-     - `start`: Launches daemon process in the background. Tracks running processes using the PID file mechanism.
-     - `stop`: Gracefully terminates background daemon.
-     - `create [schedule]`: Parses inputs and appends them to `backup_schedules.txt`. Handles basic verification (checks for three semi-colon-separated sections; throws error on malformed strings).
-     - `list`: Lists schedules with 0-indexed markers.
-     - `delete [index]`: Deletes index-th line from schedules, shifts lines down.
-     - `backups`: Scans `./backups` and outputs file list.
-  2. Maintain logs in `./logs/backup_manager.log` with correct timestamp format (`[dd/mm/yyyy hh:mm]`).
+* **Spec references**: [`docs/requirements.md`](docs/requirements.md) §First script, §Logging, §Testing.
+* **Deliverable**: `backup_manager.py` + `tests/unit/test_backup_manager.py`.
+* **Implementation steps**:
+  1. **`create "[path];hh:mm;name"`**
+     1a. Parse string: split on `;` into exactly 3 parts.
+     1b. Validate time: `HH` 00–23, `MM` 00–59.
+     1c. Validate path and name non-empty.
+     1d. If valid: append to `backup_schedules.txt`, log `New schedule added: <string>`.
+     1e. If invalid: log `Error: malformed schedule: <string>`, do not write.
+  2. **`list`**
+     2a. Open `backup_schedules.txt`.
+     2b. Print each line with 0-based index prefix (`0: path;12:00;name`).
+     2c. If file missing: log `Error: can't find backup_schedules.txt`.
+     2d. Log `Show backups list` on success.
+  3. **`delete [index]`**
+     3a. Open `backup_schedules.txt`, read all lines.
+     3b. Validate index is within range (0 to len-1).
+     3c. Remove line at index, write remaining lines back (re-indexing shifts down).
+     3d. If index out of range: log `Error: can't find schedule at index <index>`.
+     3e. If file missing: log `Error: can't find backup_schedules.txt`.
+     3f. On success: log `Schedule at index <index> deleted`.
+  4. **`backups`**
+     4a. List `.tar` files in `./backups/`.
+     4b. If directory missing: log `Error: can't find backups directory`.
+     4c. Log `Show backups list` on success.
+  5. **`start`**
+     5a. Read `./logs/backup_service.pid`, check if process exists and is running.
+     5b. If running: log `Error: backup_service already running`, abort.
+     5c. Spawn `backup_service.py` via `subprocess.Popen` with `start_new_session=True`.
+     5d. Write PID to `./logs/backup_service.pid`.
+     5e. Log `[dd/mm/yyyy hh:mm] backup_service started`.
+     5f. On failure: log `Error: can't start backup_service`.
+  6. **`stop`**
+     6a. Read `./logs/backup_service.pid`.
+     6b. If missing or process dead: log `Error: can't stop backup_service`.
+     6c. Call `os.kill(pid, signal.SIGTERM)`.
+     6d. Remove `./logs/backup_service.pid`.
+     6e. Log `[dd/mm/yyyy hh:mm] backup_service stopped`.
+  7. **Unknown commands**
+     7a. Default branch in argument parser logs `Error: unknown instruction`.
+  8. **Logging** — every function logs to `./logs/backup_manager.log` with format `[dd/mm/yyyy hh:mm] Message`.
+  9. **Error handling** — wrap I/O, process ops in `try`/`except`.
+  10. **Unit tests** — one test per item above covering success + error paths (see §5 Unit Test Coverage). All tests pass before phase 3.
 
 ### **Developer 3**
 * **Role**: Daemon Service & Storage Architect.
-* **Responsibilities**:
-  1. Implement **`backup_service.py`**:
-     - Background daemon loop containing a `time.sleep(45)` statement.
-     - PID writing behavior to `./logs/backup_service.pid` on launch.
-     - Parser for `backup_schedules.txt` that runs on every cycle.
-  2. Core Backup Engine:
-     - Detects when current local system time (HH:MM) matches target scheduled time.
-     - Avoids duplicate executions within the same minute.
-     - Compresses target files/folders to `.tar` files stored under `./backups` using Python's native `tarfile` module.
-     - Ignores passed schedule times.
-  3. Maintain logs in `./logs/backup_service.log` with correct timestamp format (`[dd/mm/yyyy hh:mm]`).
+* **Spec references**: [`docs/requirements.md`](docs/requirements.md) §Second script, §Logging, §Testing.
+* **Deliverable**: `backup_service.py` + `tests/unit/test_backup_service.py`.
+* **Implementation steps**:
+  1. **Process startup**
+     1a. On launch: write own PID to `./logs/backup_service.pid` via `os.getpid()`.
+     1b. Log `[dd/mm/yyyy hh:mm] Service started`.
+  2. **Main loop structure**
+     2a. Infinite `while True` loop.
+     2b. Sleep `time.sleep(45)` at end of each iteration.
+     2c. Wrap loop body in `try`/`except` — never crash.
+  3. **Schedule file reading**
+     3a. Open `backup_schedules.txt`.
+     3b. If file missing: log `Error: cannot open backup_schedules`, skip iteration.
+     3c. Parse each line: split on `;` into `path`, `time`, `name`.
+     3d. Skip malformed lines (log warning optional).
+  4. **Time matching**
+     4a. Compare current local time (`datetime.now().hour`, `.minute`) with schedule time.
+     4b. If time matches → proceed to backup.
+     4c. If schedule time is earlier than current time → skip (passed time).
+  5. **Deduplication**
+     5a. Track executed backups in memory: set of `(date_str, schedule_line)`.
+     5b. Skip if already run today for that schedule.
+     5c. Allow retrigger on different calendar day.
+  6. **Tar archive creation**
+     6a. Check target path exists. If missing: log error, skip.
+     6b. Create `./backups/{backup_name}.tar` using `tarfile.TarFile`.
+     6c. Add entire directory tree with `arcname` preserving hierarchy.
+     6d. Log `Backup done for <path> in backups/<name>.tar`.
+     6e. On failure: log error, do not crash loop.
+  7. **Logging** — all events to `./logs/backup_service.log` with format `[dd/mm/yyyy hh:mm] Message`.
+  8. **Error handling** — wrap I/O, tar ops, file ops in `try`/`except`.
+  9. **Unit tests** — one test per item above covering success + error paths (see §5 Unit Test Coverage). All tests pass before phase 3.
 
 ---
 
@@ -130,28 +211,148 @@ We have three developers assigned to this workspace:
 
 ### Phase Details
 
-* **Phase 1: Planning & Setup**
-  * Establish `development_plan.md`, `AGENTS.md`, and initial `README.md`.
-  * Ensure developers pull down the rules and design patterns.
+**Phase 1: Planning & Setup** (Dev 1)
+- [ ] Set up project skeleton: `AGENTS.md`, `README.md`, `development_plan.md`, `docs/requirements.md`, `docs/audit.md`, `development_plan.md`.
+- [ ] Verify directory structure per `AGENTS.md`.
+- [ ] Confirm all 3 developers have access and understand contracts.
 
-* **Phase 2: Parallel Implementation**
-  * **Dev 2** builds the management commands and local CLI tests.
-  * **Dev 3** builds the service loop, tar archiving, and timing safeguards.
-  * *Deliverable*: Code files `backup_manager.py` and `backup_service.py` pushed to branch.
+**Phase 2: Parallel Implementation**
 
-* **Phase 3: Integration & QA**
-  * Merge both codes.
-  * **Dev 1** performs the QA audit:
-    - Verifies error directories are created (`./logs`, `./backups`).
-    - Verifies service daemon isolation.
-    - Validates tar archive extraction matches original files.
+*Phase 2A — Dev 2 (CLI)*
+- [ ] **Step 1**: Implement `validate_schedule()` — parse and validate `"path;hh:mm;name"` (per requirements.md §create).
+- [ ] **Step 2**: Implement `add_schedule()` — write valid schedule to `backup_schedules.txt`, log result.
+- [ ] **Step 3**: Implement `list_schedules()` — read file, print 0-indexed lines.
+- [ ] **Step 4**: Implement `delete_schedule(index)` — remove line, re-index remainder.
+- [ ] **Step 5**: Implement `list_backups()` — scan `./backups/` for `.tar` files.
+- [ ] **Step 6**: Implement `start_service()` — PID check → `subprocess.Popen` → write PID → log.
+- [ ] **Step 7**: Implement `stop_service()` — read PID → `os.kill` → clean PID file → log.
+- [ ] **Step 8**: Implement `handle_command()` — arg parser dispatching to steps 2–7, default logs `Error: unknown instruction`.
+- [ ] **Step 9**: Implement `log()` — append to `./logs/backup_manager.log` with `[dd/mm/yyyy hh:mm]` timestamp.
+- [ ] **Step 10**: Wrap all I/O/process ops in `try`/`except`.
+- [ ] **Step 11**: Write `tests/unit/test_backup_manager.py` — one test per requirement above, success + error.
+- [ ] **Gate**: `python3 -m unittest discover -s tests/unit -v` passes 100%.
 
-* **Phase 4: Release & Handover**
-  * Finalize documentation, update `README.md` if any configurations change.
+*Phase 2B — Dev 3 (Daemon)*
+- [ ] **Step 1**: Implement `register_pid()`/`unregister_pid()` — write/clean `./logs/backup_service.pid`.
+- [ ] **Step 2**: Implement main daemon loop — `while True` with `time.sleep(45)`.
+- [ ] **Step 3**: Implement `parse_schedule()` — line → `(path, time, name)` tuple.
+- [ ] **Step 4**: Implement `time_matches(hh:mm)` — compare to `datetime.now()` hour/minute.
+- [ ] **Step 5**: Implement deduplication — track executed `(date, schedule)` pairs, skip repeats.
+- [ ] **Step 6**: Implement `create_backup(path, name)` — `tarfile` compression to `./backups/`.
+- [ ] **Step 7**: Handle missing target folder gracefully (log, skip, no crash).
+- [ ] **Step 8**: Handle missing `backup_schedules.txt` — log `Error: cannot open backup_schedules`, continue loop.
+- [ ] **Step 9**: Implement `log()` — append to `./logs/backup_service.log` with `[dd/mm/yyyy hh:mm]` timestamp.
+- [ ] **Step 10**: Wrap all I/O/tar ops in `try`/`except`.
+- [ ] **Step 11**: Write `tests/unit/test_backup_service.py` — one test per requirement above, success + error.
+- [ ] **Gate**: `python3 -m unittest discover -s tests/unit -v` passes 100%.
+
+**Phase 3: Integration & QA** (Dev 1)
+- [ ] Merge Dev 2 and Dev 3 branches.
+- [ ] **Gate**: Run `python3 -m unittest discover -s tests/unit -v` — must pass before proceeding.
+- [ ] **Integration tests** (`tests/integration/test_cli_daemon.py`):
+  - [ ] Write test: `start` spawns real process visible via `ps`.
+  - [ ] Write test: `stop` terminates process, cleans PID file.
+  - [ ] Write test: double `start` blocked with `Error: backup_service already running`.
+  - [ ] Write test: full flow — `create` → `start` → backup trigger → `backups` → `stop`.
+- [ ] **E2E audit tests** (`tests/e2e/test_audit_compliance.py`) — every `docs/audit.md` question maps to a test method:
+
+  | Audit Question | Test Method | What It Validates |
+  |---|---|---|
+  | Fresh env `rm -dr logs backups backup_schedules.txt` | `test_clean_state` | All artifacts removed, no crash on missing dirs |
+  | `backup_manager.py` and `backup_service.py` present | `test_scripts_present` | Both files exist in project root |
+  | `create "test2;18:15;backup_test2"` | `test_create_schedule_creates_file` | `backup_schedules.txt` created with correct content |
+  | `cat backup_schedules.txt` format matches | `test_schedule_content_format` | Line matches `path;hh:mm;name` pattern |
+  | `stop` on stopped daemon | `test_stop_no_daemon` | Logs `Error: can't stop backup_service` |
+  | `logs/` folder and `backup_manager.log` created | `test_logs_folder_created` | Directory and log file exist |
+  | Log content format `[dd/mm/yyyy hh:mm] Error: ...` | `test_log_format_and_content` | Timestamp + message pattern |
+  | `list` with 0-indexed output | `test_list_indexed_output` | Lines prefixed `0:`, `1:`, `2:` |
+  | `delete 1` removes correct line | `test_delete_removes_index` | Line removed, file rewritten |
+  | Re-indexing after delete | `test_delete_reindexes` | Index 2 becomes 1 after delete |
+  | `start` spawns daemon process | `test_start_spawns_process` | `ps` shows `backup_service.py`, PID file exists |
+  | Double `start` prevention | `test_double_start_blocked` | Second `start` logs already-running error |
+  | Manual backup at matching time | `test_backup_at_scheduled_time` | `.tar` created, non-empty, correct files |
+  | Passed time does not trigger | `test_passed_time_no_backup` | No `.tar` for past schedule |
+  | Tar contents match original | `test_tar_contents_match_original` | `tarfile` verify names, sizes, hierarchy |
+  | Error: unknown instruction | `test_unknown_instruction_logged` | Logs `Error: unknown instruction` |
+  | Error: malformed schedule | `test_malformed_schedule_logged` | Logs `Error: malformed schedule: <string>` |
+  | Error: can't find backups directory | `test_missing_backups_dir` | Logs `Error: can't find backups directory` |
+  | Error: backup_service already running | `test_already_running_logged` | Logs error on duplicate start |
+  | Error: cannot open backup_schedules | `test_no_schedule_file_daemon` | Daemon logs error when file missing |
+  | try/except in source | `test_try_except_in_source` | Both `.py` files contain try and except |
+- [ ] Run full test suite: `python3 -m unittest discover -s tests -v`.
+- [ ] Manual exploratory walkthrough of `docs/audit.md`.
+- [ ] Code review: verify `try`/`except` in both scripts, edge cases handled.
+
+**Phase 4: Release & Handover** (Dev 1)
+- [ ] Finalize `README.md` — update any config changes.
+- [ ] Verify all docs cross-references are accurate.
+- [ ] Tag release.
 
 ---
 
-## 5. Verification Checklist (Dev 1 / QA)
+## 5. Testing Strategy
+
+### Framework
+All tests use Python's built-in `unittest` — no external dependencies.
+
+### Test File Mapping
+
+| File | Owner | Phase | Purpose |
+|---|---|---|---|
+| `tests/unit/test_backup_manager.py` | Dev 2 | Phase 2 | Unit tests for every CLI function |
+| `tests/unit/test_backup_service.py` | Dev 3 | Phase 2 | Unit tests for every daemon function |
+| `tests/integration/test_cli_daemon.py` | Dev 1 | Phase 3 | Process lifecycle, start/stop/restart |
+| `tests/e2e/test_audit_compliance.py` | Dev 1 | Phase 3 | Every audit.md question → test method |
+
+### Dev 2 Unit Test Coverage (`test_backup_manager.py`)
+- Schedule parsing: valid format, malformed (missing parts, invalid time, empty)
+- `create`: correct line written to `backup_schedules.txt`
+- `create`: logs `Error: malformed schedule: <string>` for bad input
+- `list`: 0-indexed output, correct content
+- `list`: logs `Error: can't find backup_schedules.txt` when missing
+- `delete [index]`: removes line, re-indexes correctly
+- `delete`: logs `Error: can't find schedule at index <index>` for bad index
+- `delete`: logs `Error: can't find backup_schedules.txt` when missing
+- `backups`: lists `.tar` files from `./backups`
+- `backups`: logs `Error: can't find backups directory` when missing
+- `start`: calls `subprocess.Popen` with `start_new_session=True`
+- `start`: writes PID to `logs/backup_service.pid`
+- `start`: logs `Error: backup_service already running` on double launch
+- `stop`: calls `os.kill(pid, signal.SIGTERM)`, cleans PID file
+- `stop`: logs `Error: can't stop backup_service` when no daemon
+- Unknown commands: logs `Error: unknown instruction`
+- Log format: `[dd/mm/yyyy hh:mm] Message`
+- Error handling: source uses `try`/`except`
+
+### Dev 3 Unit Test Coverage (`test_backup_service.py`)
+- Schedule line parsing: valid 3-part, malformed, empty
+- Time matching: match returns true, mismatch returns false
+- Passed-time schedules: do not trigger
+- Deduplication: same schedule not triggered twice within same day
+- Deduplication: same time on different day does retrigger
+- PID registration: writes correct PID to `logs/backup_service.pid`
+- PID cleanup: removes file on stop
+- Tar creation: files present, directory hierarchy preserved
+- Tar integrity: files non-empty, not corrupted
+- Missing folder: logs error, skips gracefully (no crash)
+- Backup success log: `Backup done for <path> in backups/<name>.tar`
+- Missing schedule file: logs `Error: cannot open backup_schedules`
+- Log format: `[dd/mm/yyyy hh:mm] Message`
+- Error handling: source uses `try`/`except`
+- Sleep constant: 45 seconds
+
+### Running Tests
+
+```bash
+python3 -m unittest discover -s tests -v          # all
+python3 -m unittest discover -s tests/unit -v      # phase 2 gate
+python3 -m unittest discover -s tests/integration -v
+python3 -m unittest discover -s tests/e2e -v
+```
+
+---
+
+## 6. Verification Checklist (Dev 1 / QA)
 
 The following checklist must be satisfied before marking the project complete:
 
