@@ -39,6 +39,10 @@ This document contains rules, constraints, coding standards, and execution guide
      - Re-running `start` when the daemon is already running must log `Error: backup_service already running` and abort.
      - Scheduled times that have already passed must not trigger immediate backups upon daemon start.
      - Generated tarballs must be verified to contain non-empty, non-damaged files matching the original directory hierarchy.
+6. **Token Optimization & Custom Skills**:
+   - Always use the installed `rtk` skill to run terminal commands with the `rtk` prefix (e.g. `rtk git status`) to minimize input tokens.
+   - Adhere to the `simple-caveman` skill to respond concisely, dropping filler words and conversational pleasantries to minimize output tokens.
+   - Adhere to the `karpathy-guidelines` skill to avoid overcomplication, make surgical changes, and define clear success criteria when writing or refactoring code.
 
 ---
 
