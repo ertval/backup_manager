@@ -3,8 +3,10 @@ import re
 import signal
 import tarfile
 import tempfile
+import threading
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 
 from cli.config import SERVICE_LOG_FILE, PID_FILE, BACKUPS_DIR, SERVICE_SLEEP_SECONDS
 from daemon import backup, pid, schedule_reader, service
@@ -24,6 +26,14 @@ class DaemonTestCase(unittest.TestCase):
     def tearDown(self):
         os.chdir(self._old_cwd)
         self._tmpdir.cleanup()
+
+    def run_cycle_sync(self, executed, in_progress, state, now=None):
+        """Run one cycle and block until any dispatched backups finish,
+        so callers can assert on their effects deterministically."""
+        threads = service.run_cycle(executed, in_progress, state, now=now)
+        for t in threads:
+            t.join(timeout=5)
+        return threads
 
 
 class TestScheduleParsing(DaemonTestCase):
@@ -75,7 +85,7 @@ class TestTimeMatching(DaemonTestCase):
             f.write("testing;13:11;passed_time_backup\n")
 
         now = datetime(2026, 7, 4, 18, 21)
-        service.run_cycle(set(), {}, now=now)
+        self.run_cycle_sync(set(), set(), {}, now=now)
 
         self.assertFalse(os.path.exists(os.path.join(BACKUPS_DIR, "passed_time_backup.tar")))
 
@@ -88,8 +98,9 @@ class TestDeduplication(DaemonTestCase):
 
         now = datetime(2026, 7, 4, 18, 21)
         executed = set()
-        service.run_cycle(executed, {}, now=now)
-        service.run_cycle(executed, {}, now=now)
+        in_progress = set()
+        self.run_cycle_sync(executed, in_progress, {}, now=now)
+        self.run_cycle_sync(executed, in_progress, {}, now=now)
 
         with open(SERVICE_LOG_FILE) as f:
             occurrences = f.read().count("Backup done for testing in backups/backup_test.tar")
@@ -103,8 +114,9 @@ class TestDeduplication(DaemonTestCase):
         day1 = datetime(2026, 7, 4, 18, 21)
         day2 = datetime(2026, 7, 5, 18, 21)
         executed = set()
-        service.run_cycle(executed, {}, now=day1)
-        service.run_cycle(executed, {}, now=day2)
+        in_progress = set()
+        self.run_cycle_sync(executed, in_progress, {}, now=day1)
+        self.run_cycle_sync(executed, in_progress, {}, now=day2)
 
         with open(SERVICE_LOG_FILE) as f:
             occurrences = f.read().count("Backup done for testing in backups/backup_test.tar")
@@ -118,19 +130,73 @@ class TestDeduplication(DaemonTestCase):
         day1 = datetime(2026, 7, 4, 18, 21)
         day2 = datetime(2026, 7, 5, 18, 21)
         executed = set()
-        service.run_cycle(executed, {}, now=day1)
+        in_progress = set()
+        self.run_cycle_sync(executed, in_progress, {}, now=day1)
         self.assertEqual(executed, {(day1.strftime("%d/%m/%Y"), "testing;18:21;backup_test")})
 
-        service.run_cycle(executed, {}, now=day2)
+        self.run_cycle_sync(executed, in_progress, {}, now=day2)
         self.assertEqual(executed, {(day2.strftime("%d/%m/%Y"), "testing;18:21;backup_test")})
+
+    def test_in_progress_backup_not_dispatched_twice_concurrently(self):
+        os.makedirs("testing", exist_ok=True)
+        with open("backup_schedules.txt", "w") as f:
+            f.write("testing;18:21;backup_test\n")
+
+        now = datetime(2026, 7, 4, 18, 21)
+        release = threading.Event()
+        call_count = {"n": 0}
+
+        def slow_backup(path, name):
+            call_count["n"] += 1
+            release.wait(timeout=5)
+            return True
+
+        executed = set()
+        in_progress = set()
+        with patch.object(service, "create_backup", side_effect=slow_backup):
+            threads1 = service.run_cycle(executed, in_progress, {}, now=now)
+            # Same tick, backup from threads1 is still running (blocked on `release`).
+            threads2 = service.run_cycle(executed, in_progress, {}, now=now)
+            release.set()
+            for t in threads1 + threads2:
+                t.join(timeout=5)
+
+        self.assertEqual(call_count["n"], 1)
+        self.assertEqual(len(threads2), 0)
+
+
+class TestNonBlockingScheduler(DaemonTestCase):
+    def test_run_cycle_returns_before_slow_backup_finishes(self):
+        os.makedirs("testing", exist_ok=True)
+        with open("backup_schedules.txt", "w") as f:
+            f.write("testing;18:21;backup_test\n")
+
+        now = datetime(2026, 7, 4, 18, 21)
+        started = threading.Event()
+        release = threading.Event()
+
+        def slow_backup(path, name):
+            started.set()
+            release.wait(timeout=5)
+            return True
+
+        with patch.object(service, "create_backup", side_effect=slow_backup):
+            threads = service.run_cycle(set(), set(), {}, now=now)
+            # run_cycle already returned even though the backup is still
+            # blocked on `release` -- proves the scheduler isn't waiting on it.
+            self.assertTrue(started.wait(timeout=1))
+            self.assertTrue(any(t.is_alive() for t in threads))
+            release.set()
+            for t in threads:
+                t.join(timeout=5)
 
 
 class TestMissingScheduleFileLogging(DaemonTestCase):
     def test_missing_schedule_file_logs_only_once_across_cycles(self):
         state = {}
-        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 21))
-        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 22))
-        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 23))
+        self.run_cycle_sync(set(), set(), state, now=datetime(2026, 7, 4, 18, 21))
+        self.run_cycle_sync(set(), set(), state, now=datetime(2026, 7, 4, 18, 22))
+        self.run_cycle_sync(set(), set(), state, now=datetime(2026, 7, 4, 18, 23))
 
         with open(SERVICE_LOG_FILE) as f:
             occurrences = f.read().count("Error: cannot open backup_schedules")
@@ -138,14 +204,14 @@ class TestMissingScheduleFileLogging(DaemonTestCase):
 
     def test_missing_schedule_file_logs_again_after_reappearing(self):
         state = {}
-        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 21))
+        self.run_cycle_sync(set(), set(), state, now=datetime(2026, 7, 4, 18, 21))
 
         with open("backup_schedules.txt", "w") as f:
             f.write("")
-        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 22))
+        self.run_cycle_sync(set(), set(), state, now=datetime(2026, 7, 4, 18, 22))
 
         os.remove("backup_schedules.txt")
-        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 23))
+        self.run_cycle_sync(set(), set(), state, now=datetime(2026, 7, 4, 18, 23))
 
         with open(SERVICE_LOG_FILE) as f:
             occurrences = f.read().count("Error: cannot open backup_schedules")

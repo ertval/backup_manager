@@ -1,3 +1,4 @@
+import threading
 import time
 from datetime import datetime
 from cli.config import SERVICE_SLEEP_SECONDS, SERVICE_LOG_FILE
@@ -9,11 +10,25 @@ from daemon.backup import create_backup
 def time_matches(hh, mm, now):
     return now.hour == hh and now.minute == mm
 
-def run_cycle(executed, state, now=None):
-    """Check schedules once, running any backup whose time matches now.
+def _run_backup_async(path, name, key, executed, in_progress):
+    try:
+        if create_backup(path, name):
+            executed.add(key)
+    finally:
+        in_progress.discard(key)
+
+def run_cycle(executed, in_progress, state, now=None):
+    """Check schedules once, dispatching any backup whose time matches now.
+
+    Each matching backup runs on its own thread so a slow tar doesn't delay
+    the next schedule check. Returns the list of threads started, so tests
+    can join them for deterministic assertions.
 
     `executed` is a set of (date_str, schedule_line) pairs already backed
     up today, used to avoid double-triggering within the same minute.
+    `in_progress` is a set of the same kind of key for backups that have
+    been dispatched but haven't finished yet, so a slow backup isn't
+    dispatched a second time on the next cycle.
     `state` is a dict of cross-cycle flags (e.g. whether the schedule file
     was already reported missing, so we don't log the same error every cycle).
     """
@@ -28,9 +43,10 @@ def run_cycle(executed, state, now=None):
     lines = read_schedules(log_missing=not state.get("schedule_missing", False))
     if lines is None:
         state["schedule_missing"] = True
-        return
+        return []
     state["schedule_missing"] = False
 
+    threads = []
     for line in lines:
         parsed = parse_schedule(line)
         if parsed is None:
@@ -41,11 +57,20 @@ def run_cycle(executed, state, now=None):
         if not time_matches(hh, mm, now):
             continue
 
-        if (date_str, line) in executed:
+        key = (date_str, line)
+        if key in executed or key in in_progress:
             continue
 
-        if create_backup(path, name):
-            executed.add((date_str, line))
+        in_progress.add(key)
+        thread = threading.Thread(
+            target=_run_backup_async,
+            args=(path, name, key, executed, in_progress),
+            daemon=True,
+        )
+        thread.start()
+        threads.append(thread)
+
+    return threads
 
 def main():
     register_pid()
@@ -53,11 +78,12 @@ def main():
     log("Service started", SERVICE_LOG_FILE)
 
     executed = set()
+    in_progress = set()
     state = {}
 
     while True:
         try:
-            run_cycle(executed, state)
+            run_cycle(executed, in_progress, state)
         except Exception as e:
             log(f"Error: unexpected failure in service loop: {e}", SERVICE_LOG_FILE)
         time.sleep(SERVICE_SLEEP_SECONDS)
