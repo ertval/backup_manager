@@ -36,7 +36,7 @@ graph TD
   - Example: `testing;18:21;backup_test`
 - **Integrity Guidelines**:
   - The CLI script (`backup_manager.py`) writes and deletes lines in this file.
-  - The Daemon script (`backup_service.py`) reads this file read-only on each cycle.
+  - The Daemon script (`backup_service.py`) reads and rewrites this file on each cycle (removing passed schedules).
   - Empty or malformed lines should be ignored by the daemon and logged as errors by both components.
 
 ### B. Process Orchestration & Daemon Tracking (`backup_service.pid`)
@@ -113,7 +113,7 @@ We have three developers assigned to this workspace:
      2a. Open `backup_schedules.txt`.
      2b. Print each line with 0-based index prefix (`0: path;12:00;name`).
      2c. If file missing: log `Error: can't find backup_schedules.txt`.
-     2d. Log `Show backups list` on success.
+      2d. Log `Show schedules list` on success.
   3. **`delete [index]`**
      3a. Open `backup_schedules.txt`, read all lines.
      3b. Validate index is within range (0 to len-1).
@@ -134,7 +134,7 @@ We have three developers assigned to this workspace:
      5f. On failure: log `Error: can't start backup_service`.
   6. **`stop`**
      6a. Read `./logs/backup_service.pid`.
-     6b. If missing or process dead: log `Error: can't stop backup_service`.
+      6b. If missing or process dead: log `Error: backup_service not running` (or `Error: can't stop backup_service`).
      6c. Call `os.kill(pid, signal.SIGTERM)`.
      6d. Remove `./logs/backup_service.pid`.
      6e. Log `[dd/mm/yyyy hh:mm] backup_service stopped`.
@@ -164,7 +164,7 @@ We have three developers assigned to this workspace:
   4. **Time matching**
      4a. Compare current local time (`datetime.now().hour`, `.minute`) with schedule time.
      4b. If time matches → proceed to backup.
-     4c. If schedule time is earlier than current time → skip (passed time).
+      4c. If schedule time is earlier than current time → remove schedule line from file (time already passed).
   5. **Deduplication**
      5a. Track executed backups in memory: set of `(date_str, schedule_line)`.
      5b. Skip if already run today for that schedule.
@@ -278,6 +278,7 @@ We have three developers assigned to this workspace:
   | Error: can't find backups directory | `test_missing_backups_dir` | Logs `Error: can't find backups directory` |
   | Error: backup_service already running | `test_already_running_logged` | Logs error on duplicate start |
   | Error: cannot open backup_schedules | `test_no_schedule_file_daemon` | Daemon logs error when file missing |
+  | `.zip` folder backup | `test_zip_folder_backup` | `.zip` folder backed up as `.tar`, files match |
   | try/except in source | `test_try_except_in_source` | Both `.py` files contain try and except |
 - [ ] Run full test suite: `python3 -m unittest discover -s tests -v`.
 - [ ] Manual exploratory walkthrough of `docs/audit.md`.
