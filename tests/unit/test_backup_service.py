@@ -152,8 +152,8 @@ class TestBackupCreation(DaemonTestCase):
 
 class TestLogging(DaemonTestCase):
     def test_log_format(self):
-        from daemon.logger import log
-        log("Service started")
+        from cli.logger import log
+        log("Service started", SERVICE_LOG_FILE)
         with open(SERVICE_LOG_FILE) as f:
             line = f.read().strip()
         self.assertRegex(line, r"^\[\d{2}/\d{2}/\d{4} \d{2}:\d{2}\] Service started$")

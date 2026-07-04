@@ -1,7 +1,7 @@
 import time
 from datetime import datetime
-from cli.config import SERVICE_SLEEP_SECONDS
-from daemon.logger import log
+from cli.config import SERVICE_SLEEP_SECONDS, SERVICE_LOG_FILE
+from cli.logger import log
 from daemon.pid import register_pid, install_sigterm_handler
 from daemon.schedule_reader import read_schedules, parse_schedule
 from daemon.backup import create_backup
@@ -41,7 +41,7 @@ def run_cycle(executed, now=None):
 def main():
     register_pid()
     install_sigterm_handler()
-    log("Service started")
+    log("Service started", SERVICE_LOG_FILE)
 
     executed = set()
 
@@ -49,7 +49,7 @@ def main():
         try:
             run_cycle(executed)
         except Exception as e:
-            log(f"Error: unexpected failure in service loop: {e}")
+            log(f"Error: unexpected failure in service loop: {e}", SERVICE_LOG_FILE)
         time.sleep(SERVICE_SLEEP_SECONDS)
 
 if __name__ == "__main__":
