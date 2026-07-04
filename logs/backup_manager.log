@@ -1,0 +1,30 @@
+[04/07/2026 17:20] CLI started
+[04/07/2026 17:20] Show schedules list
+[04/07/2026 17:20] List Backups - no backups found
+[04/07/2026 17:20] Backup created: ./backups/roufa_04-07-2026_17-20.tar (source: 'testingkek')
+[04/07/2026 17:20] CLI exited
+[04/07/2026 17:23] CLI started
+[04/07/2026 17:23] Schedule at index 0 deleted: testingkek;16:00;testingkek_backup
+[04/07/2026 17:23] List Schedules - file is empty
+[04/07/2026 17:27] CLI started
+[04/07/2026 17:27] CLI exited
+[04/07/2026 17:28] CLI started
+[04/07/2026 17:28] Show backups list
+[04/07/2026 17:28] CLI exited
+[04/07/2026 17:30] New schedule added: testingkek;16:00;my_backup
+[04/07/2026 17:30] Show schedules list
+[04/07/2026 17:30] Schedule at index 0 deleted: testingkek;16:00;my_backup
+[04/07/2026 17:30] List Schedules - file is empty
+[04/07/2026 17:30] Error: unknown instruction 'unknown_cmd'
+[04/07/2026 17:33] New schedule added: testingkek;16:00;my_backup
+[04/07/2026 17:33] Show schedules list
+[04/07/2026 17:33] Schedule at index 0 deleted: testingkek;16:00;my_backup
+[04/07/2026 17:33] List Schedules - file is empty
+[04/07/2026 18:05] New schedule added: testingkek;16:00;my_backup
+[04/07/2026 18:05] Show schedules list
+[04/07/2026 18:05] Show backups list
+[04/07/2026 18:07] Error: unknown instruction 'roufa'
+[04/07/2026 18:13] Error: malformed schedule: wrongformat
+[04/07/2026 18:13] Error: malformed schedule: nonexistent;16:00;mybackup (path 'nonexistent' does not exist)
+[04/07/2026 18:13] Error: malformed schedule: testingkek;99:99;mybackup (invalid time '99:99')
+[04/07/2026 18:13] New schedule added: testingkek;16:00;mybackup
