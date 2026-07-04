@@ -20,6 +20,11 @@ def run_cycle(executed, state, now=None):
     now = now or datetime.now()
     date_str = now.strftime("%d/%m/%Y")
 
+    # Drop dedup entries from previous days so `executed` doesn't grow
+    # forever across a long-running process.
+    stale = {key for key in executed if key[0] != date_str}
+    executed.difference_update(stale)
+
     lines = read_schedules(log_missing=not state.get("schedule_missing", False))
     if lines is None:
         state["schedule_missing"] = True

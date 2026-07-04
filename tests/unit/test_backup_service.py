@@ -109,6 +109,20 @@ class TestDeduplication(DaemonTestCase):
             occurrences = f.read().count("Backup done for testing in backups/backup_test.tar")
         self.assertEqual(occurrences, 2)
 
+    def test_executed_set_prunes_entries_from_previous_days(self):
+        os.makedirs("testing", exist_ok=True)
+        with open("backup_schedules.txt", "w") as f:
+            f.write("testing;18:21;backup_test\n")
+
+        day1 = datetime(2026, 7, 4, 18, 21)
+        day2 = datetime(2026, 7, 5, 18, 21)
+        executed = set()
+        service.run_cycle(executed, {}, now=day1)
+        self.assertEqual(executed, {(day1.strftime("%d/%m/%Y"), "testing;18:21;backup_test")})
+
+        service.run_cycle(executed, {}, now=day2)
+        self.assertEqual(executed, {(day2.strftime("%d/%m/%Y"), "testing;18:21;backup_test")})
+
 
 class TestMissingScheduleFileLogging(DaemonTestCase):
     def test_missing_schedule_file_logs_only_once_across_cycles(self):
