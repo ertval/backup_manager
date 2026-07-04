@@ -11,7 +11,12 @@ def create_backup(path, name):
 
     try:
         os.makedirs(BACKUPS_DIR, exist_ok=True)
-        tar_path = os.path.join(BACKUPS_DIR, f"{name}.tar")
+        backups_root = os.path.realpath(BACKUPS_DIR)
+        tar_path = os.path.realpath(os.path.join(BACKUPS_DIR, f"{name}.tar"))
+        if os.path.commonpath([backups_root, tar_path]) != backups_root:
+            log(f"Error: rejected unsafe backup name '{name}'", SERVICE_LOG_FILE)
+            return False
+
         arcname = os.path.basename(os.path.normpath(path))
         with tarfile.open(tar_path, "w") as tar:
             tar.add(path, arcname=arcname)

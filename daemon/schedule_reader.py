@@ -1,3 +1,4 @@
+import os
 from cli.config import SCHEDULES_FILE, SERVICE_LOG_FILE
 from cli.logger import log
 
@@ -18,6 +19,11 @@ def parse_schedule(line):
 
     path, time_str, name = (p.strip() for p in parts)
     if not path or not name or ":" not in time_str:
+        return None
+
+    # `name` becomes a filename under ./backups/ — reject anything that could
+    # escape that directory (e.g. "../../etc/cron.d/evil").
+    if name in (".", "..") or name != os.path.basename(name):
         return None
 
     hh_str, mm_str = time_str.split(":", 1)

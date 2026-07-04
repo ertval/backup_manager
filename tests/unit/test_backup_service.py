@@ -41,6 +41,12 @@ class TestScheduleParsing(DaemonTestCase):
     def test_parse_empty_line(self):
         self.assertIsNone(schedule_reader.parse_schedule(""))
 
+    def test_parse_rejects_path_traversal_name(self):
+        self.assertIsNone(schedule_reader.parse_schedule("testing;18:21;../../etc/evil"))
+
+    def test_parse_rejects_name_with_directory_separator(self):
+        self.assertIsNone(schedule_reader.parse_schedule("testing;18:21;sub/evil"))
+
     def test_read_schedules_missing_file_logs_error(self):
         result = schedule_reader.read_schedules()
         self.assertIsNone(result)
@@ -148,6 +154,14 @@ class TestBackupCreation(DaemonTestCase):
         self.assertFalse(os.path.exists(os.path.join(BACKUPS_DIR, "backup_test.tar")))
         with open(SERVICE_LOG_FILE) as f:
             self.assertIn("Error", f.read())
+
+    def test_create_backup_rejects_path_traversal_name(self):
+        os.makedirs("testing", exist_ok=True)
+        result = backup.create_backup("testing", "../evil")
+        self.assertFalse(result)
+        self.assertFalse(os.path.exists("evil.tar"))
+        with open(SERVICE_LOG_FILE) as f:
+            self.assertIn("Error: rejected unsafe backup name", f.read())
 
 
 class TestLogging(DaemonTestCase):
