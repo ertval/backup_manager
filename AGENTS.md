@@ -28,6 +28,7 @@ Key paths agent must know:
 
 ## 3. Workflow Optimizations
 
+- Always use `rg` (ripgrep) for content searching, never `grep`.
 - Use `rtk` prefix for terminal commands (e.g. `rtk git status`).
 - Use `simple-caveman` mode for concise responses.
 - Follow `karpathy-guidelines`: surgical changes, avoid overcomplication, define verifiable success criteria.
