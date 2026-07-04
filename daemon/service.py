@@ -2,7 +2,7 @@ import time
 from datetime import datetime
 from cli.config import SERVICE_SLEEP_SECONDS, SERVICE_LOG_FILE
 from cli.logger import log
-from daemon.pid import register_pid, install_sigterm_handler
+from daemon.pid import register_pid, install_signal_handlers
 from daemon.schedule_reader import read_schedules, parse_schedule
 from daemon.backup import create_backup
 
@@ -49,7 +49,7 @@ def run_cycle(executed, state, now=None):
 
 def main():
     register_pid()
-    install_sigterm_handler()
+    install_signal_handlers()
     log("Service started", SERVICE_LOG_FILE)
 
     executed = set()

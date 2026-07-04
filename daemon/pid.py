@@ -21,9 +21,11 @@ def unregister_pid():
     except Exception:
         return False
 
-def handle_sigterm(signum, frame):
+def handle_shutdown_signal(signum, frame):
     unregister_pid()
     raise SystemExit(0)
 
-def install_sigterm_handler():
-    signal.signal(signal.SIGTERM, handle_sigterm)
+def install_signal_handlers():
+    """Clean up the PID file on both a `kill`/SIGTERM and Ctrl-C/SIGINT."""
+    signal.signal(signal.SIGTERM, handle_shutdown_signal)
+    signal.signal(signal.SIGINT, handle_shutdown_signal)

@@ -1,5 +1,6 @@
 import os
 import re
+import signal
 import tarfile
 import tempfile
 import unittest
@@ -161,6 +162,23 @@ class TestPidFile(DaemonTestCase):
         pid.register_pid()
         pid.unregister_pid()
         self.assertFalse(os.path.exists(PID_FILE))
+
+    def test_handle_shutdown_signal_cleans_up_pid_and_exits(self):
+        pid.register_pid()
+        with self.assertRaises(SystemExit):
+            pid.handle_shutdown_signal(signal.SIGTERM, None)
+        self.assertFalse(os.path.exists(PID_FILE))
+
+    def test_install_signal_handlers_registers_sigterm_and_sigint(self):
+        original_term = signal.getsignal(signal.SIGTERM)
+        original_int = signal.getsignal(signal.SIGINT)
+        try:
+            pid.install_signal_handlers()
+            self.assertIs(signal.getsignal(signal.SIGTERM), pid.handle_shutdown_signal)
+            self.assertIs(signal.getsignal(signal.SIGINT), pid.handle_shutdown_signal)
+        finally:
+            signal.signal(signal.SIGTERM, original_term)
+            signal.signal(signal.SIGINT, original_int)
 
 
 class TestBackupCreation(DaemonTestCase):
