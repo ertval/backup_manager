@@ -132,14 +132,14 @@ We have three developers assigned to this workspace:
      5d. Write PID to `./logs/backup_service.pid`.
      5e. Log `[dd/mm/yyyy hh:mm] backup_service started`.
      5f. On failure: log `Error: can't start backup_service`.
-  6. **`stop`**
-     6a. Read `./logs/backup_service.pid`.
-      6b. If missing or process dead: log `Error: backup_service not running` (or `Error: can't stop backup_service`).
-     6c. Call `os.kill(pid, signal.SIGTERM)`.
-     6d. Remove `./logs/backup_service.pid`.
-     6e. Log `[dd/mm/yyyy hh:mm] backup_service stopped`.
+   6. **`stop`**
+      6a. Read `./logs/backup_service.pid`.
+       6b. If missing or process dead: log `Error: can't stop backup_service` (canonical per `docs/requirements.md`). Note: `Error: backup_service not running` appears only in requirements §start examples, but audit.md §error-handling block asserts `Error: can't stop backup_service` for dead/missing → treat latter as authoritative.
+      6c. Call `os.kill(pid, signal.SIGTERM)`.
+      6d. Remove `./logs/backup_service.pid`.
+      6e. Log `[dd/mm/yyyy hh:mm] backup_service stopped`.
   7. **Unknown commands**
-     7a. Default branch in argument parser logs `Error: unknown instruction`.
+     7a. Default branch in argument parser logs `Error: unknown instruction` to `./logs/backup_manager.log` (CLI owns this; audit.md:145 example `cat logs/backup_service.log` is a typo — invalid CLI commands cannot reach daemon logs).
   8. **Logging** — every function logs to `./logs/backup_manager.log` with format `[dd/mm/yyyy hh:mm] Message`.
   9. **Error handling** — wrap I/O, process ops in `try`/`except`.
   10. **Unit tests** — one test per item above covering success + error paths (see §5 Unit Test Coverage). All tests pass before phase 3.
@@ -247,6 +247,8 @@ We have three developers assigned to this workspace:
 - [ ] **Gate**: `python3 -m unittest discover -s tests/unit -v` passes 100%.
 
 **Phase 3: Integration & QA** (Dev 1)
+> **Source-of-truth note**: `docs/` (requirements.md, audit.md, readme.md) are canonical. This plan must not contradict them. Where `audit.md` example outputs (`Schedule created` L109, `Error: service already running` L76) differ from canonical spec strings in `requirements.md`/`readme.md` (`New schedule added: <string>`, `Error: backup_service already running`), the canonical spec wins; audit examples are illustrative only. Implementations and tests must assert canonical strings.
+
 - [ ] Merge Dev 2 and Dev 3 branches.
 - [ ] **Gate**: Run `python3 -m unittest discover -s tests/unit -v` — must pass before proceeding.
 - [ ] **Integration tests** (`tests/integration/test_cli_daemon.py`):

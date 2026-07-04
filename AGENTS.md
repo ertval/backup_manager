@@ -11,6 +11,7 @@ Rules, constraints, and conventions for AI agents working on **Backup Manager**.
 3. **Structured Log Outputs** — events/exceptions to `./logs/{script}.log`. Format: `[dd/mm/yyyy hh:mm] Message`.
 4. **State Persistence** — daemon PID in `./logs/backup_service.pid`. Clean up on stop or dead-process detection.
 5. **Requirements & Audit Compliance** — see [`docs/requirements.md`](docs/requirements.md) for CLI/daemon specs and error message contracts.
+6. **Docs Are Source of Truth** — [`docs/`](docs/) (requirements.md, audit.md, readme.md) are canonical. `development_plan.md`, code, and tests must not contradict them. Where `audit.md` illustrative example outputs differ from canonical spec strings in `requirements.md`/`readme.md`, the canonical spec wins. Resolve any plan↔docs conflict by editing the plan to match docs, never the reverse.
 
 ## 2. File Architecture
 
