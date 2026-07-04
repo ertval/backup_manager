@@ -74,7 +74,7 @@ class TestTimeMatching(DaemonTestCase):
             f.write("testing;13:11;passed_time_backup\n")
 
         now = datetime(2026, 7, 4, 18, 21)
-        service.run_cycle(set(), now=now)
+        service.run_cycle(set(), {}, now=now)
 
         self.assertFalse(os.path.exists(os.path.join(BACKUPS_DIR, "passed_time_backup.tar")))
 
@@ -87,8 +87,8 @@ class TestDeduplication(DaemonTestCase):
 
         now = datetime(2026, 7, 4, 18, 21)
         executed = set()
-        service.run_cycle(executed, now=now)
-        service.run_cycle(executed, now=now)
+        service.run_cycle(executed, {}, now=now)
+        service.run_cycle(executed, {}, now=now)
 
         with open(SERVICE_LOG_FILE) as f:
             occurrences = f.read().count("Backup done for testing in backups/backup_test.tar")
@@ -102,11 +102,38 @@ class TestDeduplication(DaemonTestCase):
         day1 = datetime(2026, 7, 4, 18, 21)
         day2 = datetime(2026, 7, 5, 18, 21)
         executed = set()
-        service.run_cycle(executed, now=day1)
-        service.run_cycle(executed, now=day2)
+        service.run_cycle(executed, {}, now=day1)
+        service.run_cycle(executed, {}, now=day2)
 
         with open(SERVICE_LOG_FILE) as f:
             occurrences = f.read().count("Backup done for testing in backups/backup_test.tar")
+        self.assertEqual(occurrences, 2)
+
+
+class TestMissingScheduleFileLogging(DaemonTestCase):
+    def test_missing_schedule_file_logs_only_once_across_cycles(self):
+        state = {}
+        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 21))
+        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 22))
+        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 23))
+
+        with open(SERVICE_LOG_FILE) as f:
+            occurrences = f.read().count("Error: cannot open backup_schedules")
+        self.assertEqual(occurrences, 1)
+
+    def test_missing_schedule_file_logs_again_after_reappearing(self):
+        state = {}
+        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 21))
+
+        with open("backup_schedules.txt", "w") as f:
+            f.write("")
+        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 22))
+
+        os.remove("backup_schedules.txt")
+        service.run_cycle(set(), state, now=datetime(2026, 7, 4, 18, 23))
+
+        with open(SERVICE_LOG_FILE) as f:
+            occurrences = f.read().count("Error: cannot open backup_schedules")
         self.assertEqual(occurrences, 2)
 
 

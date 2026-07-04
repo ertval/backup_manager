@@ -2,13 +2,18 @@ import os
 from cli.config import SCHEDULES_FILE, SERVICE_LOG_FILE
 from cli.logger import log
 
-def read_schedules():
-    """Return the raw, non-empty lines of backup_schedules.txt, or None if it can't be read."""
+def read_schedules(log_missing=True):
+    """Return the raw, non-empty lines of backup_schedules.txt, or None if it can't be read.
+
+    `log_missing` lets callers that poll on a loop suppress repeated identical
+    error logs while the file stays absent across cycles.
+    """
     try:
         with open(SCHEDULES_FILE, "r") as f:
             return [l.rstrip("\n") for l in f.readlines() if l.strip()]
     except Exception:
-        log("Error: cannot open backup_schedules", SERVICE_LOG_FILE)
+        if log_missing:
+            log("Error: cannot open backup_schedules", SERVICE_LOG_FILE)
         return None
 
 def parse_schedule(line):
