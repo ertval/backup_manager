@@ -2,13 +2,19 @@ import os
 import re
 from cli.config import LOGS_DIR, LOG_FILE
 
+import subprocess
+
+
 SAFE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 def is_valid_name(name):
     return bool(SAFE_NAME_PATTERN.match(name))
 
 def is_safe_path(path):
-    parts = os.path.normpath(path).split(os.sep)
+    norm = os.path.normpath(path)
+    if os.path.isabs(norm) or norm.startswith('/') or norm.startswith('\\'):
+        return False
+    parts = norm.split(os.sep)
     return '..' not in parts
 
 def init():
@@ -21,7 +27,11 @@ def init():
         print(f"Warning: could not initialize logs: {e}")
 
 def clear():
-    os.system("clear")
+    try:
+        subprocess.run(["clear"])
+    except Exception:
+        pass
+
 
 def parse_time(raw):
     raw = raw.strip()

@@ -5,6 +5,15 @@ from cli.config import BACKUPS_DIR, LOG_FILE
 from cli.logger import log
 from cli.utils import is_valid_name, is_safe_path
 
+def _report(stdout_msg, log_msg=None, log_file=None):
+    print(stdout_msg)
+    if log_file is not None:
+        log(log_msg or stdout_msg, log_file)
+    else:
+        log(log_msg or stdout_msg)
+
+
+
 # --- Core logic ---
 
 def do_backup(path, name, log_file=LOG_FILE):
@@ -21,17 +30,33 @@ def do_backup(path, name, log_file=LOG_FILE):
         full_name = name
 
         os.makedirs(BACKUPS_DIR, exist_ok=True)
+        try:
+            os.chmod(BACKUPS_DIR, 0o700)
+        except Exception:
+            pass
+
         tar_path = os.path.join(BACKUPS_DIR, f"{full_name}.tar")
 
-
+        def secure_filter(tarinfo):
+            if tarinfo.issym() or tarinfo.islnk():
+                return None
+            tarinfo.uid = 0
+            tarinfo.gid = 0
+            tarinfo.uname = "root"
+            tarinfo.gname = "root"
+            return tarinfo
 
         with tarfile.open(tar_path, "w") as tar:
-            tar.add(path, arcname=folder_name)
-        print(f"Backup created: {tar_path}")
-        log(f"Backup done for {path} in backups/{full_name}.tar", log_file)
+            tar.add(path, arcname=folder_name, filter=secure_filter)
+
+        try:
+            os.chmod(tar_path, 0o600)
+        except Exception:
+            pass
+
+        _report(f"Backup created: {tar_path}", f"Backup done for {path} in backups/{full_name}.tar", log_file)
     except Exception as e:
-        print(f"Error creating backup: {e}")
-        log(f"Error: folder not found for path: {path}", log_file)
+        _report(f"Error creating backup: {e}", f"Error: failed to create backup for {path}: {e}", log_file)
 
 # --- Interactive menu functions ---
 
@@ -68,15 +93,13 @@ def create_backup():
 def list_backups():
     try:
         if not os.path.exists(BACKUPS_DIR):
-            print("Error: can't find backups directory.")
-            log("Error: can't find backups directory")
+            _report("Error: can't find backups directory.", "Error: can't find backups directory")
             return
 
         files = [f for f in os.listdir(BACKUPS_DIR) if f.endswith(".tar")]
 
         if not files:
-            print("No backups found.")
-            log("Show backups list")
+            _report("No backups found.", "Show backups list")
             return
 
         print("\n--- Backups ---")
@@ -86,5 +109,4 @@ def list_backups():
         log("Show backups list")
 
     except Exception as e:
-        print(f"Error: can't find backups directory.")
-        log("Error: can't find backups directory")
+        _report("Error: can't find backups directory.", "Error: can't find backups directory")

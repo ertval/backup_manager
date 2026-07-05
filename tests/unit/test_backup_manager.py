@@ -113,6 +113,11 @@ class TestIsSafePath(unittest.TestCase):
     def test_invalid_embedded_traversal(self):
         self.assertFalse(is_safe_path("folder/../../etc"))
 
+    def test_invalid_absolute_path(self):
+        self.assertFalse(is_safe_path("/etc/passwd"))
+        self.assertFalse(is_safe_path("/var/log"))
+
+
 
 # ---------------------------------------------------------------------------
 # add_schedule
@@ -243,7 +248,7 @@ class TestListSchedules(unittest.TestCase):
         with patch('cli.schedule.SCHEDULES_FILE', self.schedules_file), \
              patch('cli.schedule.log') as mock_log:
             list_schedules()
-        mock_log.assert_called_with("Show backups list")
+        mock_log.assert_called_with("Show schedules list")
 
     def test_missing_file_logs_error(self):
         with patch('cli.schedule.SCHEDULES_FILE', "/nonexistent/schedules.txt"), \
@@ -419,6 +424,15 @@ class TestStartService(unittest.TestCase):
             start_service()
         mock_popen.assert_not_called()
 
+    def test_popen_failure_logs_error(self):
+        with patch('cli.service.PID_FILE', self.pid_file), \
+             patch('cli.service._read_pid', return_value=None), \
+             patch('cli.service.log') as mock_log, \
+             patch('subprocess.Popen', side_effect=Exception("spawn error")):
+            start_service()
+        mock_log.assert_called_with("Error: can't start backup_service: spawn error")
+
+
 
 # ---------------------------------------------------------------------------
 # stop_service
@@ -476,6 +490,16 @@ class TestStopService(unittest.TestCase):
              patch('os.kill') as mock_kill:
             stop_service()
         mock_kill.assert_not_called()
+
+    def test_kill_failure_logs_error(self):
+        with patch('cli.service.PID_FILE', self.pid_file), \
+             patch('cli.service._read_pid', return_value=12345), \
+             patch('cli.service._is_running', return_value=True), \
+             patch('cli.service.log') as mock_log, \
+             patch('os.kill', side_effect=Exception("kill error")):
+            stop_service()
+        mock_log.assert_called_with("Error: can't stop backup_service: kill error")
+
 
 
 # ---------------------------------------------------------------------------

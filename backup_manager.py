@@ -6,29 +6,29 @@ from cli.schedule import add_schedule, remove_schedule, list_schedules
 from cli.backup import list_backups
 from cli.service import start_service, stop_service
 
+def _report(stdout_msg, log_msg=None):
+    print(stdout_msg)
+    log(log_msg or stdout_msg)
+
 def cmd_create(schedule_str):
     parts = schedule_str.strip().split(";")
     if len(parts) != 3 or not parts[0] or not parts[2]:
-        print(f"Error: malformed schedule: {schedule_str}")
-        log(f"Error: malformed schedule: {schedule_str}")
+        _report(f"Error: malformed schedule: {schedule_str}")
         return
 
     path, time_str, name = parts
 
     if not is_safe_path(path):
-        print(f"Error: malformed schedule: {schedule_str}")
-        log(f"Error: malformed schedule: {schedule_str}")
+        _report(f"Error: malformed schedule: {schedule_str}")
         return
 
     if not is_valid_name(name):
-        print(f"Error: malformed schedule: {schedule_str}")
-        log(f"Error: malformed schedule: {schedule_str}")
+        _report(f"Error: malformed schedule: {schedule_str}")
         return
 
     parsed = parse_time(time_str)
     if parsed is None:
-        print(f"Error: malformed schedule: {schedule_str}")
-        log(f"Error: malformed schedule: {schedule_str}")
+        _report(f"Error: malformed schedule: {schedule_str}")
         return
 
     hh, mm = parsed
@@ -36,8 +36,7 @@ def cmd_create(schedule_str):
 
 def cmd_delete(index_str):
     if not index_str.isdigit():
-        print(f"Error: can't find schedule at index {index_str}")
-        log(f"Error: can't find schedule at index {index_str}")
+        _report(f"Error: can't find schedule at index {index_str}")
         return
     remove_schedule(int(index_str))
 
@@ -78,8 +77,8 @@ if __name__ == "__main__":
             stop_service()
 
         else:
-            print("Error: unknown instruction")
-            log("Error: unknown instruction")
+            _report("Error: unknown instruction")
     except Exception as e:
-        print(f"Error: unexpected CLI failure: {e}")
-        log(f"Error: unexpected CLI failure: {e}")
+        _report(f"Error: unexpected CLI failure: {e}")
+
+

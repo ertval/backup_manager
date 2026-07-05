@@ -178,10 +178,14 @@ class TestAuditCompliance(unittest.TestCase):
         self.assertNotIn("testing;13:11;passed_time_backup", lines)
 
     def test_14_zip_folder_backup(self):
-        # Create a directory ending in .zip to simulate a zip folder backup
-        os.makedirs("testing_zip.zip", exist_ok=True)
-        with open("testing_zip.zip/file1.txt", "w") as f:
+        # Create a real ZIP archive with some folders and files inside it
+        import zipfile
+        os.makedirs("zip_src/sub", exist_ok=True)
+        with open("zip_src/sub/file1.txt", "w") as f:
             f.write("zip content")
+        with zipfile.ZipFile("testing_zip.zip", "w") as z:
+            z.write("zip_src/sub/file1.txt", arcname="sub/file1.txt")
+        shutil.rmtree("zip_src")
 
         now = time.localtime()
         hh = f"{now.tm_hour:02d}"
@@ -200,7 +204,8 @@ class TestAuditCompliance(unittest.TestCase):
 
         with tarfile.open(backup_tar) as tar:
             names = tar.getnames()
-            self.assertIn("testing_zip.zip/file1.txt", names)
+            self.assertIn("testing_zip.zip", names)
+
 
     def test_15_unknown_instruction_logged(self):
         result = subprocess.run([sys.executable, "backup_manager.py", "invalid_command"], capture_output=True, text=True)
@@ -242,11 +247,16 @@ class TestAuditCompliance(unittest.TestCase):
 
     def test_17_try_except_in_source(self):
         # Verify try/except blocks exist in major scripts
-        for path in ["backup_manager.py", "backup_service.py", "cli/backup.py", "daemon/service.py"]:
+        for path in [
+            "backup_manager.py", "backup_service.py",
+            "cli/backup.py", "cli/logger.py", "cli/schedule.py", "cli/service.py", "cli/utils.py",
+            "daemon/backup.py", "daemon/pid.py", "daemon/schedule_reader.py", "daemon/service.py"
+        ]:
             with open(path) as f:
                 content = f.read()
             self.assertIn("try:", content)
             self.assertIn("except", content)
+
 
 if __name__ == "__main__":
     unittest.main()

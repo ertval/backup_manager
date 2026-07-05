@@ -3,43 +3,55 @@ from cli.config import SCHEDULES_FILE
 from cli.logger import log
 from cli.utils import parse_time, is_valid_name, is_safe_path
 
+def _report(stdout_msg, log_msg=None, log_file=None):
+    print(stdout_msg)
+    if log_file is not None:
+        log(log_msg or stdout_msg, log_file)
+    else:
+        log(log_msg or stdout_msg)
+
+
 # --- Core logic ---
 
 def add_schedule(schedule_line):
     try:
         with open(SCHEDULES_FILE, "a") as f:
             f.write(schedule_line + "\n")
-        print(f"Schedule saved: {schedule_line}")
-        log(f"New schedule added: {schedule_line}")
+        try:
+            os.chmod(SCHEDULES_FILE, 0o600)
+        except Exception:
+            pass
+        _report(f"Schedule saved: {schedule_line}", f"New schedule added: {schedule_line}")
     except Exception as e:
-        print(f"Error saving schedule: {e}")
-        log(f"Error: malformed schedule: {schedule_line}")
+        _report(f"Error saving schedule: {e}", f"Error: can't write to backup_schedules.txt")
+
 
 def remove_schedule(index):
     try:
         with open(SCHEDULES_FILE, "r") as f:
             lines = [l.rstrip("\n") for l in f.readlines() if l.strip()]
     except Exception:
-        print("Error: can't find backup_schedules.txt")
-        log("Error: can't find backup_schedules.txt")
+        _report("Error: can't find backup_schedules.txt")
         return False
 
     if index < 0 or index >= len(lines):
-        print(f"Error: can't find schedule at index {index}")
-        log(f"Error: can't find schedule at index {index}")
+        _report(f"Error: can't find schedule at index {index}")
         return False
 
     lines.pop(index)
     try:
         with open(SCHEDULES_FILE, "w") as f:
             f.write("\n".join(lines) + ("\n" if lines else ""))
-        print(f"Schedule at index {index} deleted.")
-        log(f"Schedule at index {index} deleted")
+        try:
+            os.chmod(SCHEDULES_FILE, 0o600)
+        except Exception:
+            pass
+        _report(f"Schedule at index {index} deleted.", f"Schedule at index {index} deleted")
         return True
     except Exception as e:
-        print(f"Error saving changes: {e}")
-        log(f"Error: can't find backup_schedules.txt")
+        _report(f"Error saving changes: {e}", "Error: can't find backup_schedules.txt")
         return False
+
 
 # --- Interactive menu functions ---
 
@@ -134,20 +146,19 @@ def list_schedules():
         with open(SCHEDULES_FILE, "r") as f:
             lines = [l.rstrip("\n") for l in f.readlines() if l.strip()]
     except Exception:
-        print("Error: can't find backup_schedules.txt")
-        log("Error: can't find backup_schedules.txt")
+        _report("Error: can't find backup_schedules.txt")
         return
 
     if not lines:
-        print("No schedules found.")
-        log("Show backups list")
+        _report("No schedules found.", "Show schedules list")
         return
 
     print("\n--- Schedules ---")
     for i, line in enumerate(lines):
         print(f"{i}: {line}")
 
-    log("Show backups list")
+    log("Show schedules list")
+
 
 def delete_schedule():
     print("\n--- Delete Schedule ---")
