@@ -41,9 +41,14 @@ The project is **well-structured, functional, and largely compliant** with the r
 | **`create` log message** | Spec says `"New schedule added: ..."` and audit.md says `"Schedule created"` — code logs `"New schedule added: ..."` which matches `requirements.md` ✅, but audit.md L109 says `"Schedule created"`. Per AGENTS.md rule §6, `requirements.md` wins, so this is **correct**. | ✅ OK |
 | **`stop` error when not running** | `requirements.md` L63 defines **two** distinct error messages: `"Error: can't stop backup_service"` (for kill failure) and `"Error: backup_service not running"` (for service not running). Code only emits `"Error: can't stop backup_service"` for both cases ([service.py L54-55](file:///home/ertval/code/zone-modules/backup_manager/cli/service.py#L54-L55)). The audit.md L30 uses `"Error: can't stop backup_service"` which matches what code does, but the requirements spec defines a separate message. | 🟡 Medium |
 | **`start` error variants** | `requirements.md` L55 defines `"Error: can't start backup_service"` as a separate error (e.g. Popen failure), which the code **does** implement in [service.py L48-49](file:///home/ertval/code/zone-modules/backup_manager/cli/service.py#L48-L49). ✅ | ✅ OK |
+| **Log source typo in audit spec** | `audit.md` L145 example lists `cat logs/backup_service.log` for invalid command. CLI commands cannot reach daemon logs. CLI correctly logs to `logs/backup_manager.log`. | 🟢 Very Low |
 
 > [!IMPORTANT]
 > **The `list` command logs `"Show backups list"` instead of `"Show schedules list"`**. This is a copy-paste error in [schedule.py](file:///home/ertval/code/zone-modules/backup_manager/cli/schedule.py#L143). The word "backups" should be "schedules" per `readme.md` L43. The unit test at [test_backup_manager.py L246](file:///home/ertval/code/zone-modules/backup_manager/tests/unit/test_backup_manager.py#L246) asserts the wrong string, locking in the bug.
+
+> [!NOTE]
+> **Log Source Typo in Audit Spec:** [audit.md:L145](file:///home/ertval/code/zone-modules/backup_manager/docs/audit.md#L145) claims invalid CLI commands log to `logs/backup_service.log`, which is impossible since CLI commands cannot reach daemon processes. The CLI correctly logs to `logs/backup_manager.log`.
+
 
 ---
 
@@ -79,6 +84,15 @@ The project is **well-structured, functional, and largely compliant** with the r
 - **Location:** [utils.py L24](file:///home/ertval/code/zone-modules/backup_manager/cli/utils.py#L24)
 - **Impact:** `os.system()` is a shell injection vector if the function signature ever changes to accept user input. Currently safe since it's a hardcoded string, but `subprocess.run(["clear"])` is the safer pattern.
 - **Severity:** 🟢 Very Low
+
+### Mitigated/Fixed Bugs (Prior Audit Verification)
+
+Several bugs identified in earlier developer versions have been successfully mitigated:
+1. **Deduplication Memory Leak:** Mutated set entries are pruned daily in [service.py:L40](file:///home/ertval/code/zone-modules/backup_manager/daemon/service.py#L40) to prevent indefinite cache growth.
+2. **Missing Schedule File Log-Spam:** File existence state checks in [service.py:L43](file:///home/ertval/code/zone-modules/backup_manager/daemon/service.py#L43) prevent logging duplicate file-not-found errors across loop cycles.
+3. **Incomplete Signal Handling:** Installed handlers capture both `SIGTERM` and `SIGINT` in [pid.py:L28](file:///home/ertval/code/zone-modules/backup_manager/daemon/pid.py#L28) for cleaner PID removal.
+4. **Blocking Backup Operations:** Archiving is offloaded to daemon threads in [service.py:L75](file:///home/ertval/code/zone-modules/backup_manager/daemon/service.py#L75) to prevent slowing down schedule execution.
+
 
 ---
 
@@ -300,14 +314,17 @@ The daemon uses threading for non-blocking backups. Analysis:
 4. **Fix E2E `test_17`**: Check all source files for try/except, not just 4
 5. **Fix E2E `test_14`**: Create an actual `.zip` file to back up, not a directory named `.zip`
 6. **Add `is_safe_path` absolute path restriction**: Block paths starting with `/`
+7. **Inhibit Symlinks:** Configure `tarfile.add` to ignore or warn about symlinks, or pass a filter to restrict archive compilation.
+8. **Tighten File Permissions:** Ensure files and directories are written with restricted permissions (e.g., `0600` for schedule files and `0700` for the backup directory).
 
 ### Nice-to-Have
 
-7. Add integration tests for negative paths (stop when stopped, malformed create, unknown command)
-8. Add unit tests for `start_service` Popen failure and `stop_service` kill failure
-9. Extract `report_error(msg)` helper to DRY the print+log pattern
-10. Replace `os.system("clear")` with `subprocess.run(["clear"])`
-11. Consider `tarfile.add(path, filter='data')` to strip sensitive metadata (UIDs, etc.)
+9. Add integration tests for negative paths (stop when stopped, malformed create, unknown command)
+10. Add unit tests for `start_service` Popen failure and `stop_service` kill failure
+11. Extract `report_error(msg)` helper to DRY the print+log pattern
+12. Replace `os.system("clear")` with `subprocess.run(["clear"])`
+13. Consider `tarfile.add(path, filter='data')` to strip sensitive metadata (UIDs, etc.)
+
 
 ---
 
