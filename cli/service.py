@@ -2,8 +2,9 @@ import os
 import signal
 import subprocess
 import sys
-from cli.config import PID_FILE
+from cli.config import PID_FILE, SERVICE_LOG_FILE
 from cli.logger import log
+
 
 def _read_pid():
     try:
@@ -26,6 +27,7 @@ def start_service():
     if pid and _is_running(pid):
         print("Error: backup_service already running.")
         log("Error: backup_service already running")
+        log("Error: backup_service already running", log_file=SERVICE_LOG_FILE)
         return
 
     try:
@@ -56,6 +58,7 @@ def stop_service():
             os.remove(PID_FILE)
         print("backup_service stopped.")
         log("backup_service stopped")
+        log("Service stopped", log_file=SERVICE_LOG_FILE)
     except Exception as e:
         print("Error: can't stop backup_service.")
         log(f"Error: can't stop backup_service: {e}")

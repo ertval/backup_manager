@@ -1,21 +1,24 @@
 import os
 import tarfile
 from datetime import datetime
-from cli.config import BACKUPS_DIR
+from cli.config import BACKUPS_DIR, LOG_FILE
 from cli.logger import log
 from cli.utils import is_valid_name, is_safe_path
 
 # --- Core logic ---
 
-def do_backup(path, name):
+def do_backup(path, name, log_file=LOG_FILE):
     try:
         if not is_valid_name(name):
-            print(f"Error: invalid backup name '{name}'. Only letters, numbers, underscores and dashes are allowed.")
-            log(f"Error: invalid backup name '{name}' (path traversal attempt blocked)")
+            log(f"Error: invalid backup name '{name}' (path traversal attempt blocked)", log_file)
+            return
+
+        if not os.path.exists(path):
+            log(f"Error: folder not found for path: {path}", log_file)
             return
 
         folder_name = os.path.basename(os.path.normpath(path))
-        timestamp = datetime.now().strftime("%d-%m-%Y_%H-%M")
+        timestamp = datetime.now().strftime("%d-%m-%Y_%H:%M")
         full_name = f"{name}_{timestamp}"
 
         os.makedirs(BACKUPS_DIR, exist_ok=True)
@@ -23,16 +26,16 @@ def do_backup(path, name):
 
         if os.path.exists(tar_path):
             print(f"Error: backup '{full_name}.tar' already exists.")
-            log(f"Error: backup '{full_name}.tar' already exists, skipping")
+            log(f"Error: backup '{full_name}.tar' already exists, skipping", log_file)
             return
 
         with tarfile.open(tar_path, "w") as tar:
             tar.add(path, arcname=folder_name)
         print(f"Backup created: {tar_path}")
-        log(f"Backup done for {path} in backups/{full_name}.tar")
+        log(f"Backup done for {path} in backups/{full_name}.tar", log_file)
     except Exception as e:
         print(f"Error creating backup: {e}")
-        log(f"Error: folder not found for path: {path}")
+        log(f"Error: folder not found for path: {path}", log_file)
 
 # --- Interactive menu functions ---
 
