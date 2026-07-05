@@ -7,7 +7,7 @@ from cli.utils import is_valid_name, is_safe_path
 
 # --- Core logic ---
 
-def do_backup(path, name, log_file=LOG_FILE):
+def do_backup(path, name, log_file=LOG_FILE, manual=False):
     try:
         if not is_valid_name(name):
             log(f"Error: invalid backup name '{name}' (path traversal attempt blocked)", log_file)
@@ -32,7 +32,10 @@ def do_backup(path, name, log_file=LOG_FILE):
         with tarfile.open(tar_path, "w") as tar:
             tar.add(path, arcname=folder_name)
         print(f"Backup created: {tar_path}")
-        log(f"Backup done for {path} in backups/{full_name}.tar", log_file)
+        if manual:
+            log(f"Manual backup done for {path} in backups/{full_name}.tar", log_file)
+        else:
+            log(f"Backup done for {path} in backups/{full_name}.tar", log_file)
     except Exception as e:
         print(f"Error creating backup: {e}")
         log(f"Error: folder not found for path: {path}", log_file)
@@ -67,7 +70,7 @@ def create_backup():
         log(f"Error: invalid backup name '{name}' (path traversal attempt blocked)")
         return
 
-    do_backup(path, name)
+    do_backup(path, name, manual=True)
 
 def list_backups():
     try:

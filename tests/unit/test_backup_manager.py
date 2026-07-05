@@ -288,6 +288,20 @@ class TestDoBackup(unittest.TestCase):
         with open(self.log_file) as f:
             self.assertIn("Backup done for", f.read())
 
+    def test_manual_backup_logs_manual_prefix(self):
+        with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
+            do_backup(self.source_dir, "mybackup", log_file=self.log_file, manual=True)
+        with open(self.log_file) as f:
+            self.assertIn("Manual backup done for", f.read())
+
+    def test_daemon_backup_does_not_log_manual_prefix(self):
+        with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
+            do_backup(self.source_dir, "mybackup", log_file=self.log_file, manual=False)
+        with open(self.log_file) as f:
+            content = f.read()
+        self.assertNotIn("Manual backup done for", content)
+        self.assertIn("Backup done for", content)
+
     def test_invalid_name_blocked(self):
         with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
             do_backup(self.source_dir, "../../evil", log_file=self.log_file)
@@ -360,6 +374,44 @@ class TestListBackups(unittest.TestCase):
             list_backups()
             output = mock_stdout.getvalue()
         self.assertNotIn("notes.txt", output)
+
+
+# ---------------------------------------------------------------------------
+# daemon dedup logging
+# ---------------------------------------------------------------------------
+
+class TestDaemonDedup(unittest.TestCase):
+    """run_cycle must log when it skips a backup that is already executing or done."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.log_file = os.path.join(self.tmp.name, "backup_service.log")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_skipped_backup_logs_error(self):
+        from daemon.service import run_cycle
+        from datetime import datetime
+
+        schedule_line = "testingfolder;16:00;roufa"
+        now = datetime(2026, 7, 5, 16, 0)
+        executed = set()
+        in_progress = set()
+        state = {}
+
+        with patch('daemon.service.read_schedules', return_value=[schedule_line, schedule_line]), \
+             patch('daemon.service.SERVICE_LOG_FILE', self.log_file), \
+             patch('daemon.service.log') as mock_log, \
+             patch('daemon.service.threading.Thread') as mock_thread:
+            mock_thread.return_value.start = lambda: None
+            run_cycle(executed, in_progress, state, now=now)
+
+        logged_messages = [str(c) for c in mock_log.call_args_list]
+        self.assertTrue(
+            any("roufa_05-07-2026_16:00.tar' already exists, skipping" in m for m in logged_messages),
+            f"Expected duplicate-skip log with full filename, got: {logged_messages}"
+        )
 
 
 # ---------------------------------------------------------------------------
