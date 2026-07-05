@@ -23,29 +23,54 @@ A CLI-driven daemon that schedules, tracks, and compresses folder backups. Built
 
 ```
 backup_manager/
-├── 📚 docs/
-│   ├── audit.md              # QA verification checklist
-│   └── requirements.md       # Technical specification
-├── 🧪 tests/
+├── 📁 cli/                   # Modular CLI application logic
+│   ├── 🐍 backup.py          # Backup creation & interactive trigger
+│   ├── 🐍 config.py          # Path and sleep configuration constants
+│   ├── 🐍 logger.py          # Standard log writing utility
+│   ├── 🐍 menu.py            # Main menu CLI interactive dashboard
+│   ├── 🐍 schedule.py        # Schedule manager (add/remove/list)
+│   ├── 🐍 service.py         # Subprocess controllers for daemon lifecycle
+│   └── 🐍 utils.py           # Parsing and path traversal verification
+├── 📁 daemon/                # Background daemon process logic
+│   ├── 🐍 backup.py          # Safety checks wrapper for daemon backups
+│   ├── 🐍 pid.py             # Daemon process ID registration
+│   ├── 🐍 schedule_reader.py # Schedule loader & validator
+│   └── 🐍 service.py         # Daemon event loop
+├── 📚 docs/                  # QA checklists, requirements, & reports
+│   ├── audit.md              # E2E compliance validation checks
+│   ├── development_plan.md   # Architectural mapping & test specs
+│   ├── readme.md             # Functional requirements manual
+│   ├── requirements.md       # Technical contracts & constraints
+│   └── 📁 reports/           # Security audit reports
+├── 🧪 tests/                 # Built-in unit/integration/E2E test suite
 │   ├── unit/                 # Unit tests (Dev 2 & 3)
-│   ├── integration/          # CLI ↔ daemon tests (Dev 1)
-│   └── e2e/                  # Audit compliance tests (Dev 1)
-├── 🧠 AGENTS.md              # Agent coding conventions
-├── 🐍 backup_manager.py      # CLI entry point
-├── 🐍 backup_service.py      # Background daemon
-├── 📄 backup_schedules.txt   # Schedule storage (semicolon-separated)
-├── 📂 logs/
-│   ├── backup_manager.log    # CLI diagnostics
-│   ├── backup_service.log    # Daemon diagnostics
-│   └── backup_service.pid    # Active daemon PID
-└── 📦 backups/
+│   ├── integration/          # CLI-daemon interprocess communication tests
+│   └── e2e/                  # Audit checklist validation
+├── 🧠 AGENTS.md              # Coding guidelines & mandates
+├── 🐍 backup_manager.py      # Entry point executable
+├── 🐍 backup_service.py      # Background daemon entry point
+├── 📄 backup_schedules.txt   # Schedule storage (created at runtime)
+├── 📂 logs/                  # Diagnostics directory (created at runtime)
+│   ├── backup_manager.log    # CLI diagnostic log
+│   ├── backup_service.log    # Daemon diagnostic log
+│   └── backup_service.pid    # Running daemon process ID locking file
+└── 📦 backups/               # Backup archives directory (created at runtime)
     └── *.tar                 # Generated archives
 ```
 
 ---
 
-## 🚀 CLI Usage
+## 🚀 Running the Project
 
+### 🎮 Interactive Mode
+Run the tool without arguments to access the interactive dashboard menu:
+```bash
+python3 ./backup_manager.py
+```
+This lets you manually run backups, add/delete schedules, view backups, and control the daemon.
+
+### 💻 Argument Mode
+Run instructions directly from the terminal:
 ```bash
 python3 ./backup_manager.py <command> [argument]
 ```
@@ -97,17 +122,19 @@ $ python3 ./backup_manager.py stop
 
 ### 5. 📜 Review Logs
 
-**CLI** (`./logs/backup_manager.log`):
+**CLI & Manual Backups** (`./logs/backup_manager.log`):
 ```text
 [03/07/2026 18:21] New schedule added: testing;18:21;backup_test
 [03/07/2026 18:21] Error: malformed schedule: wrong_format
 [03/07/2026 18:21] backup_service started
+[03/07/2026 18:22] Manual backup done for testing in backups/mybackup.tar
 ```
 
 **Daemon** (`./logs/backup_service.log`):
 ```text
 [03/07/2026 18:21] Backup done for testing in backups/backup_test.tar
-[03/07/2026 18:22] Error: folder not found for path_to_save: missing_folder
+[03/07/2026 18:22] Error: backup 'roufa_04-07-2026_18:21.tar' already exists, skipping
+[03/07/2026 18:23] Error: folder not found for path: missing_folder
 ```
 
 ---

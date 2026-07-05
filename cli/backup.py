@@ -16,7 +16,7 @@ def _report(stdout_msg, log_msg=None, log_file=None):
 
 # --- Core logic ---
 
-def do_backup(path, name, log_file=LOG_FILE):
+def do_backup(path, name, log_file=LOG_FILE, manual=False):
     try:
         if not is_valid_name(name):
             log(f"Error: invalid backup name '{name}' (path traversal attempt blocked)", log_file)
@@ -54,7 +54,10 @@ def do_backup(path, name, log_file=LOG_FILE):
         except Exception:
             pass
 
-        _report(f"Backup created: {tar_path}", f"Backup done for {path} in backups/{full_name}.tar", log_file)
+        if manual:
+            _report(f"Backup created: {tar_path}", f"Manual backup done for {path} in backups/{full_name}.tar", log_file)
+        else:
+            _report(f"Backup created: {tar_path}", f"Backup done for {path} in backups/{full_name}.tar", log_file)
     except Exception as e:
         _report(f"Error creating backup: {e}", f"Error: failed to create backup for {path}: {e}", log_file)
 
@@ -88,7 +91,7 @@ def create_backup():
         log(f"Error: invalid backup name '{name}' (path traversal attempt blocked)")
         return
 
-    do_backup(path, name)
+    do_backup(path, name, manual=True)
 
 def list_backups():
     try:

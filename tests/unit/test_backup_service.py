@@ -164,6 +164,23 @@ class TestDeduplication(DaemonTestCase):
         self.assertEqual(call_count["n"], 1)
         self.assertEqual(len(threads2), 0)
 
+class TestDaemonDedup(DaemonTestCase):
+    def test_skipped_backup_logs_error(self):
+        schedule_line = "testing;18:21;roufa"
+        now = datetime(2026, 7, 4, 18, 21)
+        executed = {("04/07/2026", schedule_line)}
+        in_progress = set()
+        state = {}
+
+        with open("backup_schedules.txt", "w") as f:
+            f.write(schedule_line + "\n")
+
+        service.run_cycle(executed, in_progress, state, now=now)
+
+        with open(SERVICE_LOG_FILE) as f:
+            content = f.read()
+        self.assertIn("Error: backup 'roufa_04-07-2026_18:21.tar' already exists, skipping", content)
+
 
 class TestNonBlockingScheduler(DaemonTestCase):
     def test_run_cycle_returns_before_slow_backup_finishes(self):

@@ -290,6 +290,20 @@ class TestDoBackup(unittest.TestCase):
         with open(self.log_file) as f:
             self.assertIn("Backup done for " + self.source_dir + " in backups/mybackup.tar", f.read())
 
+    def test_manual_backup_logs_manual_prefix(self):
+        with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
+            do_backup(self.source_dir, "mybackup", log_file=self.log_file, manual=True)
+        with open(self.log_file) as f:
+            self.assertIn("Manual backup done for " + self.source_dir + " in backups/mybackup.tar", f.read())
+
+    def test_daemon_backup_does_not_log_manual_prefix(self):
+        with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
+            do_backup(self.source_dir, "mybackup", log_file=self.log_file, manual=False)
+        with open(self.log_file) as f:
+            content = f.read()
+        self.assertNotIn("Manual backup done for", content)
+        self.assertIn("Backup done for " + self.source_dir + " in backups/mybackup.tar", content)
+
     def test_invalid_name_blocked(self):
         with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
             do_backup(self.source_dir, "../../evil", log_file=self.log_file)

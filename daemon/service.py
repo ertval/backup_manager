@@ -69,6 +69,8 @@ def run_cycle(executed, in_progress, state, now=None):
 
         key = (date_str, line)
         if key in executed or key in in_progress:
+            full_name = f"{name}_{now.strftime('%d-%m-%Y_%H:%M')}"
+            log(f"Error: backup '{full_name}.tar' already exists, skipping", SERVICE_LOG_FILE)
             continue
 
         in_progress.add(key)
