@@ -1,5 +1,15 @@
 import os
+import re
 from cli.config import LOGS_DIR, LOG_FILE
+
+SAFE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+def is_valid_name(name):
+    return bool(SAFE_NAME_PATTERN.match(name))
+
+def is_safe_path(path):
+    parts = os.path.normpath(path).split(os.sep)
+    return '..' not in parts
 
 def init():
     """Create only the logs folder and log file so logging always works."""

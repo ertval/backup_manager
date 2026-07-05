@@ -1,6 +1,6 @@
 import sys
 from cli.menu import main
-from cli.utils import init, parse_time
+from cli.utils import init, parse_time, is_valid_name, is_safe_path
 from cli.logger import log
 from cli.schedule import add_schedule, remove_schedule, list_schedules
 from cli.backup import list_backups
@@ -14,6 +14,16 @@ def cmd_create(schedule_str):
         return
 
     path, time_str, name = parts
+
+    if not is_safe_path(path):
+        print(f"Error: malformed schedule: {schedule_str}")
+        log(f"Error: malformed schedule: {schedule_str}")
+        return
+
+    if not is_valid_name(name):
+        print(f"Error: malformed schedule: {schedule_str}")
+        log(f"Error: malformed schedule: {schedule_str}")
+        return
 
     parsed = parse_time(time_str)
     if parsed is None:

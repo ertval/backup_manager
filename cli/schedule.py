@@ -1,7 +1,7 @@
 import os
 from cli.config import SCHEDULES_FILE
 from cli.logger import log
-from cli.utils import parse_time
+from cli.utils import parse_time, is_valid_name, is_safe_path
 
 # --- Core logic ---
 
@@ -65,6 +65,10 @@ def create_schedule():
             if not raw:
                 print("Error: path cannot be empty.")
                 continue
+            if not is_safe_path(raw):
+                print(f"Error: path '{raw}' contains invalid traversal characters.")
+                log(f"Error: path traversal attempt blocked for path: '{raw}'")
+                continue
             path = raw
             step = 2
 
@@ -79,6 +83,10 @@ def create_schedule():
                 continue
             if not raw:
                 print("Error: name cannot be empty.")
+                continue
+            if not is_valid_name(raw):
+                print("Error: invalid name. Only letters, numbers, underscores and dashes are allowed.")
+                log(f"Error: malformed schedule: invalid name '{raw}'")
                 continue
             name = raw
             step = 3
