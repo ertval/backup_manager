@@ -1,3 +1,19 @@
 .claude/
 __pycache__/
 *.pyc
+
+# Logs and runtime PID files
+logs/
+
+# Generated backups
+backups/
+
+# Python virtual environments
+venv/
+.venv/
+env/
+
+# IDE and OS metadata
+.vscode/
+.idea/
+.DS_Store
