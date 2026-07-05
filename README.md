@@ -164,7 +164,7 @@ tests/
 ### Run Tests
 
 ```bash
-python3 -m unittest discover -s tests -v            # 🎯 all tests
+python3 -m unittest discover -s tests -v             # 🎯 all tests
 python3 -m unittest discover -s tests/unit -v        # 🔬 unit (phase 2 gate)
 python3 -m unittest discover -s tests/integration -v # 🔗 integration
 python3 -m unittest discover -s tests/e2e -v         # ✅ E2E audit

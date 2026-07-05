@@ -272,21 +272,18 @@ class TestDoBackup(unittest.TestCase):
     def test_creates_tar_file(self):
         with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
             do_backup(self.source_dir, "mybackup", log_file=self.log_file)
-        tars = os.listdir(self.backups_dir)
-        self.assertTrue(any("mybackup" in t for t in tars))
+        self.assertTrue(os.path.exists(os.path.join(self.backups_dir, "mybackup.tar")))
 
-    def test_tar_filename_has_timestamp(self):
+    def test_tar_filename_is_exact(self):
         with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
             do_backup(self.source_dir, "mybackup", log_file=self.log_file)
-        tars = os.listdir(self.backups_dir)
-        pattern = re.compile(r"^mybackup_\d{2}-\d{2}-\d{4}_\d{2}:\d{2}\.tar$")
-        self.assertTrue(any(pattern.match(t) for t in tars))
+        self.assertEqual(os.listdir(self.backups_dir), ["mybackup.tar"])
 
     def test_logs_backup_done(self):
         with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
             do_backup(self.source_dir, "mybackup", log_file=self.log_file)
         with open(self.log_file) as f:
-            self.assertIn("Backup done for", f.read())
+            self.assertIn("Backup done for " + self.source_dir + " in backups/mybackup.tar", f.read())
 
     def test_invalid_name_blocked(self):
         with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
@@ -302,14 +299,12 @@ class TestDoBackup(unittest.TestCase):
         with open(self.log_file) as f:
             self.assertIn("Error: folder not found for path", f.read())
 
-    def test_duplicate_backup_logs_error(self):
-        with patch('cli.backup.BACKUPS_DIR', self.backups_dir), \
-             patch('cli.backup.datetime') as mock_dt:
-            mock_dt.now.return_value.strftime.return_value = "05-07-2026_15:00"
+    def test_duplicate_backup_overwrites(self):
+        with patch('cli.backup.BACKUPS_DIR', self.backups_dir):
             do_backup(self.source_dir, "mybackup", log_file=self.log_file)
             do_backup(self.source_dir, "mybackup", log_file=self.log_file)
         with open(self.log_file) as f:
-            self.assertIn("already exists, skipping", f.read())
+            self.assertEqual(f.read().count("Backup done for"), 2)
 
 
 # ---------------------------------------------------------------------------

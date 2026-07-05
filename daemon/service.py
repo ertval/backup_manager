@@ -1,7 +1,7 @@
 import threading
 import time
 from datetime import datetime
-from cli.config import SERVICE_SLEEP_SECONDS, SERVICE_LOG_FILE
+from cli.config import SERVICE_SLEEP_SECONDS, SERVICE_LOG_FILE, SCHEDULES_FILE
 from cli.logger import log
 from daemon.pid import register_pid, install_signal_handlers
 from daemon.schedule_reader import read_schedules, parse_schedule
@@ -46,13 +46,23 @@ def run_cycle(executed, in_progress, state, now=None):
         return []
     state["schedule_missing"] = False
 
+    updated_lines = []
+    file_changed = False
+
     threads = []
     for line in lines:
         parsed = parse_schedule(line)
         if parsed is None:
+            updated_lines.append(line)
             continue
 
         path, hh, mm, name = parsed
+
+        if hh * 60 + mm < now.hour * 60 + now.minute:
+            file_changed = True
+            continue
+
+        updated_lines.append(line)
 
         if not time_matches(hh, mm, now):
             continue
@@ -69,6 +79,13 @@ def run_cycle(executed, in_progress, state, now=None):
         )
         thread.start()
         threads.append(thread)
+
+    if file_changed:
+        try:
+            with open(SCHEDULES_FILE, "w") as f:
+                f.write("\n".join(updated_lines) + ("\n" if updated_lines else ""))
+        except Exception as e:
+            log(f"Error: cannot update backup_schedules: {e}", SERVICE_LOG_FILE)
 
     return threads
 

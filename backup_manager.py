@@ -44,38 +44,42 @@ def cmd_delete(index_str):
 if __name__ == "__main__":
     init()
 
-    if len(sys.argv) == 1:
-        main()
-        sys.exit(0)
+    try:
+        if len(sys.argv) == 1:
+            main()
+            sys.exit(0)
 
-    command = sys.argv[1].lower()
+        command = sys.argv[1].lower()
 
-    if command == "create":
-        if len(sys.argv) < 3:
-            print("Usage: backup_manager.py create \"path;hh:mm;name\"")
-            log("Error: malformed schedule: (no argument provided)")
+        if command == "create":
+            if len(sys.argv) < 3:
+                print("Usage: backup_manager.py create \"path;hh:mm;name\"")
+                log("Error: malformed schedule: (no argument provided)")
+            else:
+                cmd_create(sys.argv[2])
+
+        elif command == "list":
+            list_schedules()
+
+        elif command == "delete":
+            if len(sys.argv) < 3:
+                print("Usage: backup_manager.py delete [index]")
+                log("Error: can't find schedule at index (none provided)")
+            else:
+                cmd_delete(sys.argv[2])
+
+        elif command == "backups":
+            list_backups()
+
+        elif command == "start":
+            start_service()
+
+        elif command == "stop":
+            stop_service()
+
         else:
-            cmd_create(sys.argv[2])
-
-    elif command == "list":
-        list_schedules()
-
-    elif command == "delete":
-        if len(sys.argv) < 3:
-            print("Usage: backup_manager.py delete [index]")
-            log("Error: can't find schedule at index (none provided)")
-        else:
-            cmd_delete(sys.argv[2])
-
-    elif command == "backups":
-        list_backups()
-
-    elif command == "start":
-        start_service()
-
-    elif command == "stop":
-        stop_service()
-
-    else:
-        print("Error: unknown instruction")
-        log("Error: unknown instruction")
+            print("Error: unknown instruction")
+            log("Error: unknown instruction")
+    except Exception as e:
+        print(f"Error: unexpected CLI failure: {e}")
+        log(f"Error: unexpected CLI failure: {e}")

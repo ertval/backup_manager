@@ -18,16 +18,12 @@ def do_backup(path, name, log_file=LOG_FILE):
             return
 
         folder_name = os.path.basename(os.path.normpath(path))
-        timestamp = datetime.now().strftime("%d-%m-%Y_%H:%M")
-        full_name = f"{name}_{timestamp}"
+        full_name = name
 
         os.makedirs(BACKUPS_DIR, exist_ok=True)
         tar_path = os.path.join(BACKUPS_DIR, f"{full_name}.tar")
 
-        if os.path.exists(tar_path):
-            print(f"Error: backup '{full_name}.tar' already exists.")
-            log(f"Error: backup '{full_name}.tar' already exists, skipping", log_file)
-            return
+
 
         with tarfile.open(tar_path, "w") as tar:
             tar.add(path, arcname=folder_name)

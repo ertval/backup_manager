@@ -34,7 +34,10 @@ def start_service():
         service_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "backup_service.py")
         proc = subprocess.Popen(
             [sys.executable, service_path],
-            start_new_session=True
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL
         )
         os.makedirs(os.path.dirname(PID_FILE), exist_ok=True)
         with open(PID_FILE, "w") as f:
