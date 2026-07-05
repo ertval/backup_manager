@@ -1,10 +1,10 @@
 import sys
-import os
 from cli.menu import main
 from cli.utils import init, parse_time
 from cli.logger import log
 from cli.schedule import add_schedule, remove_schedule, list_schedules
 from cli.backup import list_backups
+from cli.service import start_service, stop_service
 
 def cmd_create(schedule_str):
     parts = schedule_str.strip().split(";")
@@ -15,15 +15,10 @@ def cmd_create(schedule_str):
 
     path, time_str, name = parts
 
-    if not os.path.exists(path):
-        print(f"Error: malformed schedule: {schedule_str}")
-        log(f"Error: malformed schedule: {schedule_str} (path '{path}' does not exist)")
-        return
-
     parsed = parse_time(time_str)
     if parsed is None:
         print(f"Error: malformed schedule: {schedule_str}")
-        log(f"Error: malformed schedule: {schedule_str} (invalid time '{time_str}')")
+        log(f"Error: malformed schedule: {schedule_str}")
         return
 
     hh, mm = parsed
@@ -31,8 +26,8 @@ def cmd_create(schedule_str):
 
 def cmd_delete(index_str):
     if not index_str.isdigit():
-        print(f"Error: invalid index '{index_str}'")
-        log(f"Error: invalid index '{index_str}'")
+        print(f"Error: can't find schedule at index {index_str}")
+        log(f"Error: can't find schedule at index {index_str}")
         return
     remove_schedule(int(index_str))
 
@@ -48,7 +43,7 @@ if __name__ == "__main__":
     if command == "create":
         if len(sys.argv) < 3:
             print("Usage: backup_manager.py create \"path;hh:mm;name\"")
-            log("Error: create command missing argument")
+            log("Error: malformed schedule: (no argument provided)")
         else:
             cmd_create(sys.argv[2])
 
@@ -58,7 +53,7 @@ if __name__ == "__main__":
     elif command == "delete":
         if len(sys.argv) < 3:
             print("Usage: backup_manager.py delete [index]")
-            log("Error: delete command missing index")
+            log("Error: can't find schedule at index (none provided)")
         else:
             cmd_delete(sys.argv[2])
 
@@ -66,11 +61,11 @@ if __name__ == "__main__":
         list_backups()
 
     elif command == "start":
-        print("Start: not yet implemented.")
+        start_service()
 
     elif command == "stop":
-        print("Stop: not yet implemented.")
+        stop_service()
 
     else:
         print("Error: unknown instruction")
-        log(f"Error: unknown instruction '{sys.argv[1]}'")
+        log("Error: unknown instruction")

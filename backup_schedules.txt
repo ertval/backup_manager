@@ -1,2 +1,0 @@
-testingkek;16:00;my_backup
-testingkek;16:00;mybackup

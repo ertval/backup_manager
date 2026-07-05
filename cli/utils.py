@@ -1,17 +1,17 @@
 import os
-from cli.config import BACKUPS_DIR, SCHEDULES_FILE, LOGS_DIR, LOG_FILE
+from cli.config import LOGS_DIR, LOG_FILE
 
 def init():
-    """Create all required folders and files if they don't exist."""
+    """Create only the logs folder and log file so logging always works."""
     try:
         os.makedirs(LOGS_DIR, exist_ok=True)
-        os.makedirs(BACKUPS_DIR, exist_ok=True)
         if not os.path.exists(LOG_FILE):
             open(LOG_FILE, "w").close()
-        if not os.path.exists(SCHEDULES_FILE):
-            open(SCHEDULES_FILE, "w").close()
     except Exception as e:
-        print(f"Warning: could not initialize required files/folders: {e}")
+        print(f"Warning: could not initialize logs: {e}")
+
+def clear():
+    os.system("clear")
 
 def parse_time(raw):
     raw = raw.strip()

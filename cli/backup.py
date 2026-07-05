@@ -4,23 +4,29 @@ from datetime import datetime
 from cli.config import BACKUPS_DIR
 from cli.logger import log
 
-# --- Core logic (used by both interactive menu and argument mode) ---
+# --- Core logic ---
 
 def do_backup(path, name):
-    """Create a .tar backup of path, saved as name_timestamp.tar in backups/."""
     try:
         folder_name = os.path.basename(os.path.normpath(path))
         timestamp = datetime.now().strftime("%d-%m-%Y_%H-%M")
         full_name = f"{name}_{timestamp}"
 
+        os.makedirs(BACKUPS_DIR, exist_ok=True)
         tar_path = os.path.join(BACKUPS_DIR, f"{full_name}.tar")
+
+        if os.path.exists(tar_path):
+            print(f"Error: backup '{full_name}.tar' already exists.")
+            log(f"Error: backup '{full_name}.tar' already exists, skipping")
+            return
+
         with tarfile.open(tar_path, "w") as tar:
             tar.add(path, arcname=folder_name)
         print(f"Backup created: {tar_path}")
-        log(f"Backup created: {tar_path} (source: '{path}')")
+        log(f"Backup done for {path} in backups/{full_name}.tar")
     except Exception as e:
         print(f"Error creating backup: {e}")
-        log(f"Create Backup - Error: failed to create backup for '{path}': {e}")
+        log(f"Error: folder not found for path: {path}")
 
 # --- Interactive menu functions ---
 
@@ -29,30 +35,33 @@ def create_backup():
 
     if not path:
         print("Error: path cannot be empty.")
-        log("Create Backup - Error: path cannot be empty")
         return
 
     if not os.path.exists(path):
         print(f"Error: path '{path}' does not exist.")
-        log(f"Create Backup - Error: path '{path}' does not exist")
+        log(f"Error: folder not found for path: {path}")
         return
 
     name = input("Enter a name for the backup: ").strip()
 
     if not name:
         print("Error: name cannot be empty.")
-        log(f"Create Backup - Error: name cannot be empty (path was '{path}')")
         return
 
     do_backup(path, name)
 
 def list_backups():
     try:
+        if not os.path.exists(BACKUPS_DIR):
+            print("Error: can't find backups directory.")
+            log("Error: can't find backups directory")
+            return
+
         files = [f for f in os.listdir(BACKUPS_DIR) if f.endswith(".tar")]
 
         if not files:
             print("No backups found.")
-            log("List Backups - no backups found")
+            log("Show backups list")
             return
 
         print("\n--- Backups ---")
@@ -62,5 +71,5 @@ def list_backups():
         log("Show backups list")
 
     except Exception as e:
-        print(f"Error reading backups: {e}")
-        log(f"List Backups - Error: {e}")
+        print(f"Error: can't find backups directory.")
+        log("Error: can't find backups directory")
