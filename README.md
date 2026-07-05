@@ -62,6 +62,16 @@ backup_manager/
 
 ## 🚀 Running the Project
 
+### 🎬 Automated Demo Mode
+Run the automated pipeline to see schedules, daemon execution, manual logs, and duplicate checking in a single command:
+```bash
+./run_demo.sh
+```
+Or run using Makefile:
+```bash
+make demo
+```
+
 ### 🎮 Interactive Mode
 Run the tool without arguments to access the interactive dashboard menu:
 ```bash
@@ -177,27 +187,25 @@ tar -tvf ./backups/backup_test.tar
 
 ## 🧪 Testing
 
-All tests use Python's built-in `unittest` — **zero external dependencies**.
+All tests use Python's built-in `unittest` — **zero external dependencies**. Shorter commands are available via the `Makefile`.
 
 ### Test Layout
 
 ```
 tests/
-├── 🔬 unit/           # Dev 2 & 3 — gating criteria for Phase 3
-├── 🔗 integration/    # Dev 1 — CLI ↔ daemon interaction
-└── ✅ e2e/            # Dev 1 — audit.md compliance
+├── 🔬 unit/           # Unit tests (CLI & daemon operations)
+├── 🔗 integration/    # CLI ↔ daemon interprocess execution tests
+└── ✅ e2e/            # End-to-end audit compliance verification
 ```
 
 ### Run Tests
 
 ```bash
-python3 -m unittest discover -s tests -v             # 🎯 all tests
-python3 -m unittest discover -s tests/unit -v        # 🔬 unit (phase 2 gate)
-python3 -m unittest discover -s tests/integration -v # 🔗 integration
-python3 -m unittest discover -s tests/e2e -v         # ✅ E2E audit
+make test             # 🎯 Run all tests
+make test-unit        # 🔬 Run unit tests only
+make test-integration # 🔗 Run integration tests only
+make test-e2e         # ✅ Run E2E audit tests only
 ```
-
-See [`development_plan.md`](development_plan.md) §5 for the full audit-to-test mapping and coverage requirements.
 
 ---
 
